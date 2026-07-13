@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.routes import api_router
 
 app = FastAPI(title="Wardrobe Try-On API")
 
@@ -11,6 +12,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(api_router, prefix="/api/v1")
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
