@@ -86,10 +86,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "8080:80"
 
   nginx:
     image: nginx:alpine
