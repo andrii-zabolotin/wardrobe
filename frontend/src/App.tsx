@@ -3,18 +3,17 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from './store/authStore';
 import { NotificationProvider } from './ws/NotificationContext';
+import { Layout } from './components/Layout/Layout';
 
 const queryClient = new QueryClient();
 
-// Placeholders for Stage 8
-const LoginPage = () => <div>Login Page</div>;
-const RegisterPage = () => <div>Register Page</div>;
-const Layout = ({ children }: { children: React.ReactNode }) => <div><nav>Sidebar</nav><main>{children}</main></div>;
-const AvatarsPage = () => <div>Avatars Page</div>;
-const WardrobePage = () => <div>Wardrobe Page</div>;
-const OutfitBoardPage = () => <div>Outfit Board Page</div>;
-const StylistPage = () => <div>Stylist Page</div>;
-const GalleryPage = () => <div>Gallery Page</div>;
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Avatars from './pages/Avatars';
+import Wardrobe from './pages/Wardrobe';
+import OutfitBoard from './pages/OutfitBoard';
+import Stylist from './pages/Stylist';
+import Gallery from './pages/Gallery';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = useAuthStore((state) => state.token);
@@ -28,14 +27,14 @@ function App() {
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             
-            <Route path="/avatars" element={<ProtectedRoute><AvatarsPage /></ProtectedRoute>} />
-            <Route path="/wardrobe" element={<ProtectedRoute><WardrobePage /></ProtectedRoute>} />
-            <Route path="/outfits" element={<ProtectedRoute><OutfitBoardPage /></ProtectedRoute>} />
-            <Route path="/stylist" element={<ProtectedRoute><StylistPage /></ProtectedRoute>} />
-            <Route path="/gallery" element={<ProtectedRoute><GalleryPage /></ProtectedRoute>} />
+            <Route path="/avatars" element={<ProtectedRoute><Avatars /></ProtectedRoute>} />
+            <Route path="/wardrobe" element={<ProtectedRoute><Wardrobe /></ProtectedRoute>} />
+            <Route path="/outfits" element={<ProtectedRoute><OutfitBoard /></ProtectedRoute>} />
+            <Route path="/stylist" element={<ProtectedRoute><Stylist /></ProtectedRoute>} />
+            <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
             
             <Route path="/" element={<Navigate to="/wardrobe" />} />
           </Routes>
