@@ -46,5 +46,32 @@ async def generate_avatar(reference_paths: list[str], custom_prompt: str | None 
     raise ValueError("No image generated")
 
 async def generate_outfit_render(avatar_path: str, garment_paths: list[str], image_prompt: str) -> bytes:
-    """Placeholder for stage 5"""
-    pass
+    """Generate final outfit render using gemini-3.1-flash-image."""
+    parts = []
+    
+    avatar_bytes = read_file_bytes(avatar_path)
+    parts.append(types.Part.from_bytes(data=avatar_bytes, mime_type="image/jpeg"))
+    
+    for path in garment_paths:
+        file_bytes = read_file_bytes(path)
+        parts.append(types.Part.from_bytes(data=file_bytes, mime_type="image/jpeg"))
+        
+    parts.append(types.Part.from_text(text=image_prompt))
+    
+    response = client.models.generate_content(
+        model="gemini-3.1-flash-image",
+        contents=parts,
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE", "TEXT"],
+            image_config=types.ImageConfig(
+                aspect_ratio="3:4",
+                number_of_images=1,
+            )
+        )
+    )
+    
+    for part in response.candidates[0].content.parts:
+        if part.inline_data:
+            return part.inline_data.data
+            
+    raise ValueError("No image generated")
