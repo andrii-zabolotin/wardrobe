@@ -9,7 +9,8 @@ from app.models.outfit import Outfit, OutfitGarment
 from app.services.vector_store import search_garments
 from sqlalchemy import select
 
-client = genai.Client(api_key=settings.gemini_api_key)
+def get_client():
+    return genai.Client(api_key=settings.gemini_api_key)
 
 STYLIST_SYSTEM_PROMPT = """
 You are a personal fashion stylist assistant with access to the user's wardrobe.
@@ -81,8 +82,9 @@ class StylistSession:
     def __init__(self, user_id: str, active_avatar_id: str | None = None):
         self.user_id = user_id
         self.active_avatar_id = active_avatar_id
-        self.chat = client.chats.create(
-            model="gemini-2.5-flash",
+        client = get_client()
+        self.chat = client.aio.chats.create(
+            model="gemini-3-flash-preview",
             config=types.GenerateContentConfig(
                 system_instruction=STYLIST_SYSTEM_PROMPT,
                 tools=[STYLIST_TOOLS],

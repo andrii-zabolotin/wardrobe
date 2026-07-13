@@ -3,7 +3,8 @@ from google.genai import types
 from app.core.config import settings
 from app.services.file_storage import read_file_bytes
 
-client = genai.Client(api_key=settings.gemini_api_key)
+def get_client():
+    return genai.Client(api_key=settings.gemini_api_key)
 
 async def generate_avatar(reference_paths: list[str], custom_prompt: str | None = None) -> bytes:
     """Generate avatar image using gemini-3.1-flash-image."""
@@ -27,7 +28,8 @@ async def generate_avatar(reference_paths: list[str], custom_prompt: str | None 
         
     parts.append(types.Part.from_text(text=prompt))
     
-    response = client.models.generate_content(
+    client = get_client()
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-image",
         contents=parts,
         config=types.GenerateContentConfig(
@@ -58,7 +60,8 @@ async def generate_outfit_render(avatar_path: str, garment_paths: list[str], ima
         
     parts.append(types.Part.from_text(text=image_prompt))
     
-    response = client.models.generate_content(
+    client = get_client()
+    response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-image",
         contents=parts,
         config=types.GenerateContentConfig(

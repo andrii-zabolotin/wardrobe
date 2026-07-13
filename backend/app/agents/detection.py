@@ -8,7 +8,8 @@ from google.genai import types
 from app.core.config import settings
 from app.services.file_storage import read_file_bytes
 
-client = genai.Client(api_key=settings.gemini_api_key)
+def get_client():
+    return genai.Client(api_key=settings.gemini_api_key)
 
 class GarmentStyleAttributes(BaseModel):
     warmth_level: Literal["very_light", "light", "medium", "warm", "very_warm"]
@@ -45,8 +46,8 @@ async def detect_garments(image_bytes: bytes) -> DetectionResult:
     - If no garments are found, return {"garments": []}
     """
     
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
+    response = await get_client().aio.models.generate_content(
+        model="gemini-3-flash-preview",
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
             prompt

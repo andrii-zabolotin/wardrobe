@@ -7,10 +7,10 @@ interface User {
 }
 
 interface AuthState {
-  token: str | null;
+  token: string | null;
   user: User | null;
   activeAvatarId: string | null;
-  setAuth: (token: str, user: User) => void;
+  setAuth: (token: string, user: User) => void;
   setActiveAvatarId: (id: string | null) => void;
   logout: () => void;
 }

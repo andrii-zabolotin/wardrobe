@@ -1,9 +1,20 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.api.routes import api_router
+from app.services.vector_store import init_collection
 
-app = FastAPI(title="Wardrobe Try-On API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize Qdrant collection on startup
+    try:
+        await init_collection()
+    except Exception as e:
+        print(f"Failed to initialize collection: {e}")
+    yield
+
+app = FastAPI(title="Wardrobe Try-On API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

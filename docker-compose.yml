@@ -6,6 +6,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - /app/.venv
       - media_volume:/app/media
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/wardrobe
@@ -23,14 +24,15 @@ services:
       redis:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+        condition: service_started
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   worker:
     build:
       context: ./backend
     volumes:
       - ./backend:/app
+      - /app/.venv
       - media_volume:/app/media
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/wardrobe
@@ -76,11 +78,7 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+
 
   frontend:
     build:

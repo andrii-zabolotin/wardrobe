@@ -5,7 +5,8 @@ from google.genai import types
 
 from app.core.config import settings
 
-client = genai.Client(api_key=settings.gemini_api_key)
+def get_client():
+    return genai.Client(api_key=settings.gemini_api_key)
 
 class ComposerGarmentInfo(BaseModel):
     category: str
@@ -29,8 +30,9 @@ async def describe_avatar(avatar_bytes: bytes) -> str:
     """Extract physical description from avatar image."""
     prompt = "Briefly describe the physical characteristics of the person in this image: gender, build, approximate age, skin tone, hair color/style. Return ONLY the description, e.g. 'Athletic build male, ~30yo, fair skin, dark hair'."
     
+    client = get_client()
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3-flash-preview",
         contents=[
             types.Part.from_bytes(data=avatar_bytes, mime_type="image/jpeg"),
             prompt
@@ -66,8 +68,9 @@ async def compose_outfit_prompt(input_data: OutfitComposerInput) -> OutfitPrompt
     - seated: "seated on minimal white chair, legs crossed, three-quarter body visible"
     """
     
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
+    client = get_client()
+    response = await client.aio.models.generate_content(
+        model="gemini-3-flash-preview",
         contents=[
             prompt,
             f"Avatar: {input_data.avatar_description}",

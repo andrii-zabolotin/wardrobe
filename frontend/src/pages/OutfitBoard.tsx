@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNotifications } from '../ws/NotificationContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Trash2, Plus, Sparkles, Loader2, Play } from 'lucide-react';
+import { Trash2, Plus, Loader2, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function OutfitBoard() {
@@ -27,7 +27,7 @@ export default function OutfitBoard() {
 
   const createMutation = useMutation({
     mutationFn: () => createOutfit(activeAvatarId!, selectedGarments, pose),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outfits'] });
       setSelectedGarments([]);
     }

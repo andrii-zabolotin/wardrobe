@@ -3,22 +3,30 @@ from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, Fi
 from google import genai
 from app.core.config import settings
 
-qdrant = AsyncQdrantClient(url=settings.qdrant_url)
-genai_client = genai.Client(api_key=settings.gemini_api_key)
+def get_qdrant() -> AsyncQdrantClient:
+    return AsyncQdrantClient(url=settings.qdrant_url)
+
+def get_genai_client() -> genai.Client:
+    return genai.Client(api_key=settings.gemini_api_key)
 
 async def init_collection() -> None:
     """Create collection if it doesn't exist."""
-    collections = await qdrant.get_collections()
-    if not any(c.name == settings.qdrant_collection for c in collections.collections):
-        await qdrant.create_collection(
-            collection_name=settings.qdrant_collection,
-            vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-        )
+    qdrant = get_qdrant()
+    try:
+        collections = await qdrant.get_collections()
+        if not any(c.name == settings.qdrant_collection for c in collections.collections):
+            await qdrant.create_collection(
+                collection_name=settings.qdrant_collection,
+                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+            )
+    finally:
+        await qdrant.close()
 
 async def embed_text(text: str) -> list[float]:
-    """Get embedding from Gemini text-embedding-004."""
-    response = genai_client.models.embed_content(
-        model="text-embedding-004",
+    """Get embedding from Gemini."""
+    client = get_genai_client()
+    response = await client.aio.models.embed_content(
+        model="gemini-embedding-2",
         contents=text
     )
     return response.embeddings[0].values
@@ -37,17 +45,25 @@ async def upsert_garment(garment_id: str, user_id: str, embedding_summary: str, 
         }
     )
     
-    await qdrant.upsert(
-        collection_name=settings.qdrant_collection,
-        points=[point]
-    )
+    client = get_qdrant()
+    try:
+        await client.upsert(
+            collection_name=settings.qdrant_collection,
+            points=[point]
+        )
+    finally:
+        await client.close()
 
 async def delete_garment(garment_id: str) -> None:
     """Delete point from Qdrant."""
-    await qdrant.delete(
-        collection_name=settings.qdrant_collection,
-        points_selector=[garment_id]
-    )
+    client = get_qdrant()
+    try:
+        await client.delete(
+            collection_name=settings.qdrant_collection,
+            points_selector=[garment_id]
+        )
+    finally:
+        await client.close()
 
 async def search_garments(user_id: str, query: str, limit: int = 5, filters: dict = None) -> list[dict]:
     """Semantic search for user's garments."""
@@ -65,11 +81,14 @@ async def search_garments(user_id: str, query: str, limit: int = 5, filters: dic
             
     search_filter = Filter(must=must_conditions)
     
-    results = await qdrant.search(
-        collection_name=settings.qdrant_collection,
-        query_vector=vector,
-        query_filter=search_filter,
-        limit=limit
-    )
-    
-    return [hit.payload for hit in results]
+    client = get_qdrant()
+    try:
+        results = await client.search(
+            collection_name=settings.qdrant_collection,
+            query_vector=vector,
+            query_filter=search_filter,
+            limit=limit
+        )
+        return [hit.payload for hit in results]
+    finally:
+        await client.close()

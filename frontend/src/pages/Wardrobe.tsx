@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getGarments, detectGarments, deleteGarment } from '../api/garments';
 import { useNotifications } from '../ws/NotificationContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
-import { Trash2, Loader2, UploadCloud, Tag } from 'lucide-react';
+import { Trash2, Loader2, UploadCloud } from 'lucide-react';
 
 const CATEGORIES = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory'];
 
@@ -13,6 +13,8 @@ export default function Wardrobe() {
   const queryClient = useQueryClient();
   const [category, setCategory] = useState('all');
   const [files, setFiles] = useState<FileList | null>(null);
+  const [uploadKey, setUploadKey] = useState(0);
+  const [isDetecting, setIsDetecting] = useState(false);
   
   const { data: garments, isLoading } = useQuery({ 
     queryKey: ['garments', category], 
@@ -21,14 +23,20 @@ export default function Wardrobe() {
   
   const { lastEvent } = useNotifications();
   
-  if (lastEvent?.type === 'detection_done' || lastEvent?.type === 'detection_failed') {
-    queryClient.invalidateQueries({ queryKey: ['garments'] });
-  }
+  useEffect(() => {
+    if (lastEvent?.type === 'detection_done' || lastEvent?.type === 'detection_failed') {
+      queryClient.invalidateQueries({ queryKey: ['garments'] });
+      // Small timeout to ensure garments are fetched before removing skeleton
+      setTimeout(() => setIsDetecting(false), 500);
+    }
+  }, [lastEvent, queryClient]);
 
   const detectMutation = useMutation({
     mutationFn: (f: File[]) => detectGarments(f),
     onSuccess: () => {
       setFiles(null);
+      setUploadKey(prev => prev + 1);
+      setIsDetecting(true);
     }
   });
 
@@ -40,8 +48,11 @@ export default function Wardrobe() {
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0) return;
+    setIsDetecting(true);
     detectMutation.mutate(Array.from(files));
   };
+
+  const isBusy = detectMutation.isPending || isDetecting;
 
   return (
     <div className="space-y-6">
@@ -56,21 +67,22 @@ export default function Wardrobe() {
             <div className="space-y-2 flex-1 max-w-md">
               <label className="text-sm font-medium">Add New Photos (Bulk upload supported)</label>
               <Input 
+                key={uploadKey}
                 type="file" 
                 multiple 
                 accept="image/*" 
                 onChange={e => setFiles(e.target.files)} 
-                disabled={detectMutation.isPending}
+                disabled={isBusy}
               />
             </div>
-            <Button type="submit" disabled={detectMutation.isPending || !files || files.length === 0}>
-              {detectMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+            <Button type="submit" disabled={isBusy || !files || files.length === 0}>
+              <UploadCloud className="mr-2 h-4 w-4" />
               Upload & Detect
             </Button>
           </form>
-          {detectMutation.isPending && (
-            <p className="text-sm text-muted-foreground mt-2 flex items-center">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing images with Gemini 2.5 Flash... This may take a moment.
+          {detectMutation.isError && (
+            <p className="text-sm text-red-500 mt-2">
+              Upload failed: {detectMutation.error instanceof Error ? detectMutation.error.message : 'Unknown error'}
             </p>
           )}
         </CardContent>
@@ -90,9 +102,15 @@ export default function Wardrobe() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {isDetecting && (
+          <Card className="overflow-hidden flex flex-col items-center justify-center p-6 border-dashed border-2 opacity-50 bg-muted/50">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+            <p className="text-sm font-medium text-muted-foreground text-center animate-pulse">AI is analyzing...</p>
+          </Card>
+        )}
         {isLoading ? (
           <div className="col-span-full flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-        ) : garments?.length === 0 ? (
+        ) : garments?.length === 0 && !isDetecting ? (
           <div className="col-span-full text-center p-12 border border-dashed rounded-lg text-muted-foreground">
             No garments found in this category.
           </div>
