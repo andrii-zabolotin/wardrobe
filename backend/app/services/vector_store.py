@@ -83,12 +83,12 @@ async def search_garments(user_id: str, query: str, limit: int = 5, filters: dic
     
     client = get_qdrant()
     try:
-        results = await client.search(
+        results = await client.query_points(
             collection_name=settings.qdrant_collection,
-            query_vector=vector,
+            query=vector,
             query_filter=search_filter,
             limit=limit
         )
-        return [hit.payload for hit in results]
+        return [hit.payload for hit in results.points]
     finally:
         await client.close()

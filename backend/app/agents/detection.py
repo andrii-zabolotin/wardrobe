@@ -19,6 +19,7 @@ class GarmentStyleAttributes(BaseModel):
 
 class DetectedGarment(BaseModel):
     bounding_box: list[float]
+    title: str
     category: Literal["top", "bottom", "dress", "outerwear", "shoes", "accessory"]
     color: str
     pattern: str
@@ -39,6 +40,7 @@ async def detect_garments(image_bytes: bytes) -> DetectionResult:
     For each item return a DetectionResult with every garment described precisely.
     
     Rules:
+    - title must be a concise, user-friendly name (e.g., "Green Graphic Hoodie", "Classic Blue Jeans")
     - bounding_box coordinates must be normalized (0.0 to 1.0 relative to image dimensions: [ymin, xmin, ymax, xmax])
     - If the same item appears from multiple angles, report it once
     - Do NOT hallucinate items that are not clearly visible
@@ -72,6 +74,13 @@ def crop_garment(image_bytes: bytes, bbox: list[float]) -> bytes:
         
     width, height = img.size
     ymin, xmin, ymax, xmax = bbox
+    
+    # Gemini sometimes returns 0-1000 coordinates instead of 0-1
+    if max(bbox) > 1.0:
+        ymin /= 1000.0
+        xmin /= 1000.0
+        ymax /= 1000.0
+        xmax /= 1000.0
     
     # Denormalize
     left = int(xmin * width)

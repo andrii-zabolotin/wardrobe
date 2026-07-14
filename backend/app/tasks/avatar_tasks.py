@@ -6,14 +6,15 @@ from app.tasks.celery_app import celery_app
 from app.tasks.notifications import publish_ws_event
 from app.core.database import AsyncSessionLocal
 from app.models.avatar import Avatar
-from app.services.file_storage import save_upload
+from app.services.file_storage import save_upload, read_file_bytes
 from app.services.birefnet import apply_white_background
 from app.agents.image_gen import generate_avatar
+from app.agents.outfit_composer import describe_avatar
 from sqlalchemy import select
 
 logger = get_task_logger(__name__)
 
-async def process_avatar(avatar_id: str, custom_prompt: str | None = None) -> None:
+async def process_avatar(avatar_id: str, custom_prompt: str | None = None, height: int | None = None, weight: int | None = None) -> None:
     async with AsyncSessionLocal() as session:
         # Load avatar
         stmt = select(Avatar).where(Avatar.id == avatar_id)
@@ -35,7 +36,7 @@ async def process_avatar(avatar_id: str, custom_prompt: str | None = None) -> No
             paths = [img.file_url for img in avatar.source_images]
             
             # Generate image
-            raw_bytes = await generate_avatar(paths, custom_prompt)
+            raw_bytes = await generate_avatar(paths, custom_prompt, height, weight)
             
             # Remove background
             clean_bytes = apply_white_background(raw_bytes)
@@ -44,9 +45,13 @@ async def process_avatar(avatar_id: str, custom_prompt: str | None = None) -> No
             filename = f"{avatar_id}.jpg"
             url = save_upload(user_id, "avatars", clean_bytes, filename)
             
+            # Describe avatar for caching
+            physical_description = await describe_avatar(clean_bytes)
+            
             # Update DB
             avatar.status = "ready"
             avatar.canonical_url = url
+            avatar.physical_description = physical_description
             await session.commit()
             
             # Notify
@@ -60,5 +65,30 @@ async def process_avatar(avatar_id: str, custom_prompt: str | None = None) -> No
             publish_ws_event(user_id, "avatar_failed", avatar_id, {"error": str(e)})
 
 @celery_app.task(name="app.tasks.avatar_tasks.generate_avatar_task")
-def generate_avatar_task(avatar_id: str, custom_prompt: str = None):
-    async_to_sync(process_avatar)(avatar_id, custom_prompt)
+def generate_avatar_task(avatar_id: str, custom_prompt: str | None = None, height: int | None = None, weight: int | None = None):
+    async_to_sync(process_avatar)(avatar_id, custom_prompt, height, weight)
+
+async def process_manual_avatar_async(avatar_id: str) -> None:
+    async with AsyncSessionLocal() as session:
+        stmt = select(Avatar).where(Avatar.id == avatar_id)
+        result = await session.execute(stmt)
+        avatar = result.scalar_one_or_none()
+        
+        if not avatar or not avatar.canonical_url:
+            return
+            
+        try:
+            image_bytes = read_file_bytes(avatar.canonical_url)
+            desc = await describe_avatar(image_bytes)
+            
+            avatar.physical_description = desc
+            await session.commit()
+            
+            publish_ws_event(str(avatar.user_id), "avatar_updated", str(avatar.id), {"physical_description": desc})
+            logger.info(f"Avatar {avatar_id} manually described successfully")
+        except Exception as e:
+            logger.error(f"Error describing manual avatar {avatar_id}: {str(e)}")
+
+@celery_app.task(name="app.tasks.avatar_tasks.process_manual_avatar_task")
+def process_manual_avatar_task(avatar_id: str):
+    async_to_sync(process_manual_avatar_async)(avatar_id)

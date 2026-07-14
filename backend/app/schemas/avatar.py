@@ -9,4 +9,5 @@ class AvatarResponse(BaseModel):
     id: uuid.UUID
     canonical_url: str | None
     status: str
+    physical_description: str | None = None
     created_at: datetime

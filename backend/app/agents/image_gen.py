@@ -6,18 +6,39 @@ from app.services.file_storage import read_file_bytes
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
 
-async def generate_avatar(reference_paths: list[str], custom_prompt: str | None = None) -> bytes:
+async def generate_avatar(reference_paths: list[str], custom_prompt: str | None = None, height: int | None = None, weight: int | None = None) -> bytes:
     """Generate avatar image using gemini-3.1-flash-image."""
-    AVATAR_SYSTEM_PROMPT = """
-    Professional studio portrait photography. Plain white background.
-    Cinematic lighting, softbox setup, sharp focus, 4K resolution.
-    CRITICAL: Maintain exact facial identity, likeness, and proportions
-    from the provided reference images. Standing upright, front-facing,
-    natural posture, neutral expression, full body framing (head to toe).
-    Correct anatomy, symmetrical features, photorealistic quality.
-    """
-    
+    AVATAR_SYSTEM_PROMPT = """Professional photorealistic studio character sheet created from the provided reference images.
+
+CRITICAL: Preserve the exact identity and appearance of the same adult character across all views, including facial structure, skull shape, hairstyle, skin tone, distinctive features, and body proportions. Do not redesign, beautify, stylize, age, or alter the character.
+
+Create a clean horizontal 3-view layout on a seamless white background:
+
+LEFT: Large front-facing facial close-up, eye-level camera, neutral expression, entire head, ears, neck, and upper shoulders visible.
+
+CENTER: Large strict 90-degree side-profile facial close-up of the same character, eye-level camera, neutral expression, entire head silhouette, ear, neck, and upper shoulders visible. No three-quarter angle.
+
+RIGHT: Front-facing full-body view of the same character, standing upright in a neutral anatomical pose, entire body visible from head to feet, arms slightly away from the torso, realistic proportions matching the references.
+
+WARDROBE: Minimal plain neutral underwear only. Male: fitted briefs. Female: non-transparent bra and briefs. No shoes, accessories, jewelry, or additional clothing.
+
+Exactly three views, one character only, clear separation between views, no overlap. Maintain identical facial identity, hairstyle, skin tone, physique, and proportions across all views.
+
+Professional neutral studio lighting, minimal shadows, sharp focus, natural skin texture, realistic anatomy, no perspective distortion, no depth of field, no dramatic lighting, no text, labels, borders, props, or additional poses.
+
+Identity consistency and accurate anatomical reference are the highest priority.
+"""
+
     prompt = AVATAR_SYSTEM_PROMPT
+    
+    if height or weight:
+        prompt += "\nBODY PARAMETERS:\n"
+        if height:
+            prompt += f"Height: {height} cm.\n"
+        if weight:
+            prompt += f"Weight: {weight} kg.\n"
+        prompt += "\nUse these measurements together with the provided reference images to reconstruct realistic body proportions and physique. The character's apparent height, body mass, shoulder width, torso length, waist, hips, limb thickness, and overall body silhouette should be physically plausible for the specified height and weight.\n\nDo not exaggerate muscularity, thinness, curves, or body fat. Prioritize the visible body features from the reference images; use height and weight only as supporting information.\n"
+    
     if custom_prompt:
         prompt += f"\nAdditional instructions: {custom_prompt}"
 
@@ -35,7 +56,7 @@ async def generate_avatar(reference_paths: list[str], custom_prompt: str | None 
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"],
             image_config=types.ImageConfig(
-                aspect_ratio="3:4",
+                aspect_ratio="16:9",
                 number_of_images=1,
             )
         )

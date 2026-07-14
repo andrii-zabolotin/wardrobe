@@ -25,7 +25,7 @@ export default defineConfig({
         ws: true,
       },
       '/media': {
-        target: 'http://api:8000',
+        target: 'http://nginx:80',
         changeOrigin: true,
       }
     }

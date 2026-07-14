@@ -83,8 +83,13 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: builder
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
     ports:
-      - "8080:80"
+      - "5173:5173"
 
   nginx:
     image: nginx:alpine

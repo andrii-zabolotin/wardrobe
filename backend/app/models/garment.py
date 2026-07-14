@@ -19,6 +19,7 @@ class Garment(Base, UUIDMixin, TimestampMixin):
     bounding_box: Mapped[dict] = mapped_column(JSONB) # [x1, y1, x2, y2]
     crop_url: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String, index=True)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
     
     attributes: Mapped[dict] = mapped_column(JSONB, default=dict)
     style_attributes: Mapped[dict] = mapped_column(JSONB, default=dict)
@@ -27,3 +28,9 @@ class Garment(Base, UUIDMixin, TimestampMixin):
     
     user = relationship("User", back_populates="garments")
     outfits = relationship("OutfitGarment", back_populates="garment", cascade="all, delete-orphan")
+    source_image = relationship("SourceImage")
+
+    @property
+    def source_image_url(self) -> str | None:
+        return self.source_image.original_url if self.source_image else None
+

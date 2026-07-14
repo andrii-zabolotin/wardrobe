@@ -19,8 +19,12 @@ export interface Garment {
   id: string;
   crop_url: string;
   category: string;
+  title?: string;
   attributes: GarmentAttributes;
   style_attributes: GarmentStyleAttributes;
+  source_image_id?: string;
+  source_image_url?: string;
+  bounding_box?: [number, number, number, number];
   created_at: string;
 }
 

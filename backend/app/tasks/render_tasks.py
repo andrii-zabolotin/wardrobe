@@ -9,7 +9,7 @@ from app.tasks.celery_app import celery_app
 from app.tasks.notifications import publish_ws_event
 from app.core.database import AsyncSessionLocal
 from app.models.render import Render
-from app.models.outfit import Outfit
+from app.models.outfit import Outfit, OutfitGarment
 from app.models.avatar import Avatar
 from app.services.file_storage import save_upload, read_file_bytes
 from app.agents.outfit_composer import describe_avatar, compose_outfit_prompt, OutfitComposerInput, ComposerGarmentInfo
@@ -21,7 +21,7 @@ async def process_render(render_id: str) -> None:
     async with AsyncSessionLocal() as session:
         # Load render
         stmt = select(Render).options(
-            selectinload(Render.outfit).selectinload(Outfit.garments).selectinload("garment"),
+            selectinload(Render.outfit).selectinload(Outfit.garments).selectinload(OutfitGarment.garment),
             selectinload(Render.outfit).selectinload(Outfit.avatar)
         ).where(Render.id == render_id)
         
@@ -45,11 +45,12 @@ async def process_render(render_id: str) -> None:
             if not avatar.canonical_url:
                 raise ValueError("Avatar is not ready yet")
                 
-            avatar_bytes = read_file_bytes(avatar.canonical_url)
-            
-            # describe avatar if needed (not cached or we can just cache it somewhere else, 
-            # for MVP we will just describe it directly)
-            avatar_desc = await describe_avatar(avatar_bytes)
+            avatar_desc = avatar.physical_description
+            if not avatar_desc:
+                # Fallback for older avatars without cached description
+                avatar_bytes = read_file_bytes(avatar.canonical_url)
+                avatar_desc = await describe_avatar(avatar_bytes)
+                # We optionally could save it here, but avatar might not be in session properly for update, so just use it.
             
             # Compose prompt
             garment_infos = [

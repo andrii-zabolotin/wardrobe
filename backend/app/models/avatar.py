@@ -10,6 +10,7 @@ class Avatar(Base, UUIDMixin, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     canonical_url: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="pending")  # pending, processing, ready, failed
+    physical_description: Mapped[str | None] = mapped_column(String, nullable=True)
 
     user = relationship("User", back_populates="avatars")
     source_images = relationship("AvatarSourceImage", back_populates="avatar", cascade="all, delete-orphan")

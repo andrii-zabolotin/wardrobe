@@ -82,17 +82,17 @@ class StylistSession:
     def __init__(self, user_id: str, active_avatar_id: str | None = None):
         self.user_id = user_id
         self.active_avatar_id = active_avatar_id
-        client = get_client()
-        self.chat = client.aio.chats.create(
+        self.client = get_client()
+        self.chat = self.client.aio.chats.create(
             model="gemini-3-flash-preview",
             config=types.GenerateContentConfig(
                 system_instruction=STYLIST_SYSTEM_PROMPT,
-                tools=[STYLIST_TOOLS],
+                tools=[{"function_declarations": STYLIST_TOOLS}],
                 temperature=0.7,
             )
         )
 
-    async def handle_search_wardrobe(self, args: dict) -> str:
+    async def handle_search_wardrobe(self, args: dict) -> tuple[str, list[dict]]:
         filters = {}
         if "category" in args:
             filters["category"] = args["category"]
@@ -103,7 +103,35 @@ class StylistSession:
             limit=args.get("limit", 5),
             filters=filters if filters else None
         )
-        return json.dumps(results)
+        
+        garment_cards = []
+        if results:
+            garment_ids = [r["garment_id"] for r in results]
+            async with AsyncSessionLocal() as session:
+                from app.models.garment import Garment
+                from sqlalchemy.orm import joinedload
+                stmt = select(Garment).options(joinedload(Garment.source_image)).where(Garment.id.in_(garment_ids))
+                db_results = await session.execute(stmt)
+                db_garments = {str(g.id): g for g in db_results.scalars().all()}
+                
+                for r in results:
+                    g_id = r["garment_id"]
+                    if g_id in db_garments:
+                        g = db_garments[g_id]
+                        card = {
+                            "id": str(g.id),
+                            "title": g.title,
+                            "category": g.category,
+                            "crop_url": g.crop_url,
+                            "source_image_id": str(g.source_image_id) if g.source_image_id else None,
+                            "source_image_url": g.source_image_url,
+                            "bounding_box": g.bounding_box
+                        }
+                        garment_cards.append(card)
+                        # optionally add to result for Gemini to know context
+                        r["bounding_box"] = g.bounding_box
+        
+        return json.dumps(results), garment_cards
 
     async def handle_get_wardrobe_gaps(self, args: dict) -> str:
         # Simplistic implementation for MVP: just say nothing is missing or generic advice
@@ -135,7 +163,7 @@ class StylistSession:
         return json.dumps({"status": "prompted_user_for_render", "outfit_id": args["outfit_id"]})
 
     async def send_message(self, text: str):
-        response = self.chat.send_message(text)
+        response = await self.chat.send_message(text)
         
         while response.function_calls:
             for fn_call in response.function_calls:
@@ -144,7 +172,12 @@ class StylistSession:
                 
                 result = "{}"
                 if name == "search_wardrobe":
-                    result = await self.handle_search_wardrobe(args)
+                    result, garment_cards = await self.handle_search_wardrobe(args)
+                    if garment_cards:
+                        yield {
+                            "type": "garment_cards",
+                            "garments": garment_cards
+                        }
                 elif name == "get_wardrobe_gaps":
                     result = await self.handle_get_wardrobe_gaps(args)
                 elif name == "create_outfit":
@@ -157,7 +190,7 @@ class StylistSession:
                         "outfit_id": args.get("outfit_id")
                     }
                     
-                response = self.chat.send_message(
+                response = await self.chat.send_message(
                     types.Part.from_function_response(
                         name=name,
                         response={"result": result}

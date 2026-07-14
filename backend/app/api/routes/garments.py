@@ -2,6 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.models.user import User
@@ -20,7 +21,7 @@ async def list_garments(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Garment).where(Garment.user_id == current_user.id)
+    stmt = select(Garment).options(joinedload(Garment.source_image)).where(Garment.user_id == current_user.id)
     if category:
         stmt = stmt.where(Garment.category == category)
     stmt = stmt.order_by(Garment.created_at.desc())
@@ -58,7 +59,7 @@ async def get_garment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Garment).where(Garment.id == id, Garment.user_id == current_user.id)
+    stmt = select(Garment).options(joinedload(Garment.source_image)).where(Garment.id == id, Garment.user_id == current_user.id)
     result = await db.execute(stmt)
     garment = result.scalar_one_or_none()
     if not garment:
@@ -72,7 +73,7 @@ async def update_garment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Garment).where(Garment.id == id, Garment.user_id == current_user.id)
+    stmt = select(Garment).options(joinedload(Garment.source_image)).where(Garment.id == id, Garment.user_id == current_user.id)
     result = await db.execute(stmt)
     garment = result.scalar_one_or_none()
     if not garment:
@@ -80,6 +81,8 @@ async def update_garment(
         
     if update_data.category:
         garment.category = update_data.category
+    if update_data.title is not None:
+        garment.title = update_data.title
     if update_data.attributes:
         garment.attributes = update_data.attributes.model_dump()
     if update_data.style_attributes:
@@ -97,6 +100,7 @@ async def update_garment(
         user_id=str(current_user.id),
         embedding_summary=summary,
         payload={
+            "title": garment.title,
             "category": garment.category,
             "formality": garment.style_attributes.get("formality"),
             "warmth_level": garment.style_attributes.get("warmth_level"),
