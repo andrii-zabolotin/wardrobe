@@ -6,15 +6,28 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Trash2, Loader2, UploadCloud } from 'lucide-react';
+import type { Garment } from '../api/garments';
+import { GarmentPreviewModal } from '../components/GarmentPreviewModal';
 
 const CATEGORIES = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory'];
+
+type DetectionState = {
+  phase: 'idle' | 'uploading' | 'analyzing' | 'cropping' | 'saving' | 'done' | 'error';
+  label?: string;
+  imageIndex?: number;
+  totalImages?: number;
+  itemsAdded?: number;
+  error?: string;
+};
 
 export default function Wardrobe() {
   const queryClient = useQueryClient();
   const [category, setCategory] = useState('all');
   const [files, setFiles] = useState<FileList | null>(null);
   const [uploadKey, setUploadKey] = useState(0);
-  const [isDetecting, setIsDetecting] = useState(false);
+  const [detectState, setDetectState] = useState<DetectionState>({ phase: 'idle' });
+  const [totalAdded, setTotalAdded] = useState(0);
+  const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
   
   const { data: garments, isLoading } = useQuery({ 
     queryKey: ['garments', category], 
@@ -24,10 +37,35 @@ export default function Wardrobe() {
   const { lastEvent } = useNotifications();
   
   useEffect(() => {
-    if (lastEvent?.type === 'detection_done' || lastEvent?.type === 'detection_failed') {
-      queryClient.invalidateQueries({ queryKey: ['garments'] });
-      // Small timeout to ensure garments are fetched before removing skeleton
-      setTimeout(() => setIsDetecting(false), 500);
+    if (!lastEvent) return;
+    
+    if (lastEvent.type === 'detection_progress') {
+      setDetectState({
+        phase: lastEvent.data.step,
+        label: lastEvent.data.label,
+        imageIndex: lastEvent.data.image_index,
+        totalImages: lastEvent.data.total_images
+      });
+    } else if (lastEvent.type === 'detection_done') {
+      setTotalAdded(prev => prev + (lastEvent.data.garments_added || 0));
+      const isLast = lastEvent.data.image_index === lastEvent.data.total_images;
+      if (isLast || !lastEvent.data.total_images) {
+        queryClient.invalidateQueries({ queryKey: ['garments'] });
+        setDetectState(prev => ({
+          phase: 'done',
+          itemsAdded: prev.itemsAdded ? prev.itemsAdded + (lastEvent.data.garments_added || 0) : (lastEvent.data.garments_added || 0),
+          imageIndex: lastEvent.data.image_index,
+          totalImages: lastEvent.data.total_images
+        }));
+        
+        // Auto-dismiss after 2 seconds
+        setTimeout(() => {
+          setDetectState({ phase: 'idle' });
+          setTotalAdded(0);
+        }, 2000);
+      }
+    } else if (lastEvent.type === 'detection_failed') {
+      setDetectState({ phase: 'error', error: lastEvent.data.error || 'Detection failed' });
     }
   }, [lastEvent, queryClient]);
 
@@ -36,7 +74,10 @@ export default function Wardrobe() {
     onSuccess: () => {
       setFiles(null);
       setUploadKey(prev => prev + 1);
-      setIsDetecting(true);
+      setDetectState({ phase: 'analyzing', label: 'AI is analyzing garments…' });
+    },
+    onError: (err) => {
+      setDetectState({ phase: 'error', error: err instanceof Error ? err.message : 'Upload failed' });
     }
   });
 
@@ -48,11 +89,12 @@ export default function Wardrobe() {
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0) return;
-    setIsDetecting(true);
+    setTotalAdded(0);
+    setDetectState({ phase: 'uploading', label: 'Uploading photos…' });
     detectMutation.mutate(Array.from(files));
   };
 
-  const isBusy = detectMutation.isPending || isDetecting;
+  const isBusy = detectMutation.isPending || (detectState.phase !== 'idle' && detectState.phase !== 'error' && detectState.phase !== 'done');
 
   return (
     <div className="space-y-6">
@@ -102,26 +144,90 @@ export default function Wardrobe() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {isDetecting && (
-          <Card className="overflow-hidden flex flex-col items-center justify-center p-6 border-dashed border-2 opacity-50 bg-muted/50">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-            <p className="text-sm font-medium text-muted-foreground text-center animate-pulse">AI is analyzing...</p>
+        {detectState.phase !== 'idle' && (
+          <Card className="col-span-full overflow-hidden p-6 border-dashed border-2 bg-muted/30">
+            <div className="flex flex-col gap-4 max-w-lg mx-auto">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  {detectState.phase === 'done' ? (
+                    <span className="text-green-500 flex items-center gap-2">🎉 Detection Complete</span>
+                  ) : detectState.phase === 'error' ? (
+                    <span className="text-red-500 flex items-center gap-2">❌ Detection Failed</span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      Processing Wardrobe
+                    </span>
+                  )}
+                </h3>
+                {detectState.totalImages && detectState.totalImages > 1 && (
+                  <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                    Photo {detectState.imageIndex || 1} of {detectState.totalImages}
+                  </span>
+                )}
+              </div>
+              
+              {detectState.phase === 'error' ? (
+                <p className="text-sm text-red-500">{detectState.error}</p>
+              ) : detectState.phase === 'done' ? (
+                <p className="text-sm text-muted-foreground">
+                  Successfully added {totalAdded} items to your wardrobe.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className={detectState.phase === 'uploading' ? "text-primary font-medium" : "text-muted-foreground"}>
+                      {detectState.phase === 'uploading' ? "Uploading photos…" : "✓ Photos uploaded"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    {detectState.phase === 'analyzing' || detectState.phase === 'uploading' ? (
+                      <span className={detectState.phase === 'analyzing' ? "text-primary font-medium animate-pulse" : "text-muted-foreground opacity-50"}>
+                        {detectState.label || "AI is analyzing garments…"}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">✓ AI analysis complete</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    {detectState.phase === 'cropping' ? (
+                      <span className="text-primary font-medium animate-pulse">
+                        {detectState.label || "Cropping detected items…"}
+                      </span>
+                    ) : detectState.phase === 'saving' ? (
+                      <span className="text-muted-foreground">✓ Items cropped</span>
+                    ) : (
+                      <span className="text-muted-foreground opacity-50">Cropping detected items…</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    {detectState.phase === 'saving' ? (
+                      <span className="text-primary font-medium animate-pulse">
+                        {detectState.label || "Saving & categorizing…"}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground opacity-50">Saving & categorizing…</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
         )}
         {isLoading ? (
           <div className="col-span-full flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-        ) : garments?.length === 0 && !isDetecting ? (
+        ) : garments?.length === 0 && detectState.phase === 'idle' ? (
           <div className="col-span-full text-center p-12 border border-dashed rounded-lg text-muted-foreground">
             No garments found in this category.
           </div>
         ) : garments?.map(garment => (
-          <Card key={garment.id} className="overflow-hidden flex flex-col group">
+          <Card key={garment.id} className="overflow-hidden flex flex-col group cursor-pointer" onClick={() => setSelectedGarment(garment)}>
             <div className="aspect-square bg-muted relative p-4 flex items-center justify-center">
               <img src={garment.crop_url} alt={garment.category} className="max-w-full max-h-full object-contain mix-blend-multiply" />
             </div>
-            <div className="p-4 bg-card flex flex-col gap-2 mt-auto text-sm border-t">
+            <div className="p-4 bg-card flex flex-col gap-2 mt-auto text-sm border-t relative z-10" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <span className="font-semibold capitalize text-base">{garment.category}</span>
+                <span className="font-semibold capitalize text-base">{garment.title || garment.category}</span>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => delMutation.mutate(garment.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -135,6 +241,14 @@ export default function Wardrobe() {
           </Card>
         ))}
       </div>
+
+      {selectedGarment && (
+        <GarmentPreviewModal
+          garment={selectedGarment}
+          open={!!selectedGarment}
+          onClose={() => setSelectedGarment(null)}
+        />
+      )}
     </div>
   );
 }

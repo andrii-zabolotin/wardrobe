@@ -7,12 +7,16 @@ import { Send, Sparkles, UserCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { triggerRender } from '../api/outfits';
+import type { Garment } from '../api/garments';
+import { GarmentChip } from '../components/GarmentChip';
+import { GarmentPreviewModal } from '../components/GarmentPreviewModal';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  type: 'text' | 'render_suggestion';
+  type: 'text' | 'render_suggestion' | 'garment_cards';
   outfitId?: string;
+  garments?: Garment[];
 }
 
 export default function Stylist() {
@@ -21,6 +25,8 @@ export default function Stylist() {
   ]);
   const [input, setInput] = useState('');
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
   
   const token = useAuthStore(state => state.token);
   const activeAvatarId = useAuthStore(state => state.activeAvatarId);
@@ -42,6 +48,7 @@ export default function Stylist() {
     const socket = new WebSocket(url);
 
     socket.onmessage = (event) => {
+      setIsTyping(false);
       const data = JSON.parse(event.data);
       if (data.type === 'message') {
         setMessages(prev => [...prev, { role: 'assistant', content: data.text, type: 'text' }]);
@@ -51,6 +58,13 @@ export default function Stylist() {
           content: "I've put together an outfit for you! Want to try it on?", 
           type: 'render_suggestion',
           outfitId: data.outfit_id
+        }]);
+      } else if (data.type === 'garment_cards') {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: '',
+          type: 'garment_cards',
+          garments: data.garments
         }]);
       }
     };
@@ -69,6 +83,7 @@ export default function Stylist() {
     setMessages(prev => [...prev, { role: 'user', content: input, type: 'text' }]);
     ws.send(JSON.stringify({ text: input }));
     setInput('');
+    setIsTyping(true);
   };
 
   const handleRender = async (outfitId: string) => {
@@ -110,7 +125,7 @@ export default function Stylist() {
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
-                ) : (
+                ) : msg.type === 'render_suggestion' ? (
                   <div className="space-y-3">
                     <p className="font-medium">{msg.content}</p>
                     <Button 
@@ -121,10 +136,27 @@ export default function Stylist() {
                       Try On (Render)
                     </Button>
                   </div>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar max-w-full">
+                    {msg.garments?.map(g => (
+                      <GarmentChip key={g.id} garment={g} onClick={() => setSelectedGarment(g)} />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           ))}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3 flex items-center h-10">
+                <div className="flex space-x-1.5 items-center">
+                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </CardContent>
         <div className="p-4 border-t bg-card">
@@ -141,6 +173,14 @@ export default function Stylist() {
           </form>
         </div>
       </Card>
+
+      {selectedGarment && (
+        <GarmentPreviewModal
+          garment={selectedGarment}
+          open={!!selectedGarment}
+          onClose={() => setSelectedGarment(null)}
+        />
+      )}
     </div>
   );
 }
