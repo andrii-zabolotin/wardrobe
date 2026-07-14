@@ -10,5 +10,7 @@ class RenderResponse(BaseModel):
     outfit_id: uuid.UUID
     status: str
     result_url: str | None
+    prompt_used: str | None = None
+    error_message: str | None = None
     is_saved: bool
     created_at: datetime

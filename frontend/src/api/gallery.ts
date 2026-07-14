@@ -5,6 +5,8 @@ export interface Render {
   outfit_id: string;
   status: string;
   result_url: string | null;
+  prompt_used: string | null;
+  error_message: string | null;
   is_saved: boolean;
   created_at: string;
 }

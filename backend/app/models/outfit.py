@@ -14,8 +14,12 @@ class Outfit(Base, UUIDMixin, TimestampMixin):
 
     user = relationship("User", back_populates="outfits")
     avatar = relationship("Avatar", back_populates="outfits")
-    garments = relationship("OutfitGarment", back_populates="outfit", cascade="all, delete-orphan")
+    garments = relationship("OutfitGarment", back_populates="outfit", cascade="all, delete-orphan", lazy="selectin")
     renders = relationship("Render", back_populates="outfit", cascade="all, delete-orphan")
+
+    @property
+    def garment_ids(self) -> list[uuid.UUID]:
+        return [g.garment_id for g in self.garments]
 
 class OutfitGarment(Base):
     __tablename__ = "outfit_garments"
