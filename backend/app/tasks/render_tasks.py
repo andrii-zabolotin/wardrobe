@@ -13,7 +13,7 @@ from app.models.outfit import Outfit, OutfitGarment
 from app.models.avatar import Avatar
 from app.services.file_storage import save_upload, read_file_bytes
 from app.agents.outfit_composer import describe_avatar, compose_outfit_prompt, OutfitComposerInput, ComposerGarmentInfo
-from app.agents.image_gen import generate_outfit_render
+from app.agents.image_gen import generate_outfit_render, DevMockResult
 
 logger = get_task_logger(__name__)
 
@@ -75,11 +75,22 @@ async def process_render(render_id: str) -> None:
             
             # Render
             garment_paths = [g.crop_url for g in garments]
-            render_bytes = await generate_outfit_render(
+            render_bytes_or_mock = await generate_outfit_render(
                 avatar.canonical_url,
                 garment_paths,
                 prompt_result.image_prompt
             )
+            
+            if isinstance(render_bytes_or_mock, DevMockResult):
+                render.status = "dev_mock"
+                render.result_url = None
+                render.prompt_used = prompt_result.image_prompt
+                await session.commit()
+                publish_ws_event(user_id, "render_done", render_id, {"result_url": None}, dev_prompt=render_bytes_or_mock.__dict__)
+                logger.info(f"Render {render_id} dev mocked")
+                return
+                
+            render_bytes = render_bytes_or_mock
             
             # Save
             filename = f"{render_id}.jpg"

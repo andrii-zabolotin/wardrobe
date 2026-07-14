@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useDevStore } from '../../store/devStore';
+import { DevModeToggle } from '../DevMode';
 import { Shirt, UserCircle, LayoutDashboard, Sparkles, Image as ImageIcon, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -14,13 +17,21 @@ const navItems = [
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const logout = useAuthStore(state => state.logout);
+  const fetchDevMode = useDevStore(state => state.fetchDevMode);
+
+  useEffect(() => {
+    fetchDevMode();
+  }, [fetchDevMode]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside className="w-64 border-r bg-card flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b">
+        <div className="h-16 flex items-center justify-between px-6 border-b">
           <h1 className="text-xl font-bold tracking-tight">Wardrobe Try-On</h1>
+        </div>
+        <div className="px-6 py-2 border-b">
+          <DevModeToggle />
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">

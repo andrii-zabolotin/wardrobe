@@ -7,6 +7,7 @@ from .outfits import router as outfits_router
 from .renders import router as renders_router
 from .gallery import router as gallery_router
 from .stylist import router as stylist_router
+from .settings import router as settings_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -17,3 +18,4 @@ api_router.include_router(outfits_router, prefix="/outfits", tags=["outfits"])
 api_router.include_router(renders_router, prefix="/renders", tags=["renders"])
 api_router.include_router(gallery_router, prefix="/gallery", tags=["gallery"])
 api_router.include_router(stylist_router, prefix="/stylist", tags=["stylist"])
+api_router.include_router(settings_router, tags=["settings"])

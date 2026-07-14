@@ -8,7 +8,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.avatar import Avatar
 from app.services.file_storage import save_upload, read_file_bytes
 from app.services.birefnet import apply_white_background
-from app.agents.image_gen import generate_avatar
+from app.agents.image_gen import generate_avatar, DevMockResult
 from app.agents.outfit_composer import describe_avatar
 from sqlalchemy import select
 
@@ -36,7 +36,17 @@ async def process_avatar(avatar_id: str, custom_prompt: str | None = None, heigh
             paths = [img.file_url for img in avatar.source_images]
             
             # Generate image
-            raw_bytes = await generate_avatar(paths, custom_prompt, height, weight)
+            raw_bytes_or_mock = await generate_avatar(paths, custom_prompt, height, weight)
+            
+            if isinstance(raw_bytes_or_mock, DevMockResult):
+                avatar.status = "dev_mock"
+                avatar.canonical_url = None
+                await session.commit()
+                publish_ws_event(user_id, "avatar_ready", avatar_id, {"canonical_url": None}, dev_prompt=raw_bytes_or_mock.__dict__)
+                logger.info(f"Avatar {avatar_id} dev mocked")
+                return
+
+            raw_bytes = raw_bytes_or_mock
             
             # Remove background
             clean_bytes = apply_white_background(raw_bytes)

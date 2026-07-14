@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Files
     media_root: str = "/app/media"
     max_upload_size_mb: int = 20
+    
+    # Dev Mode
+    dev_mode: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

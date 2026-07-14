@@ -168,7 +168,12 @@ export default function Avatars() {
               </div>
             )}
             <div className="aspect-video bg-muted relative">
-              {avatar.status === 'ready' && avatar.canonical_url ? (
+              {avatar.status === 'dev_mock' ? (
+              <div className="flex flex-col items-center justify-center h-full w-full bg-neutral-900 border border-neutral-700 text-center text-neutral-500">
+                <span className="font-mono text-sm mb-2 text-red-500/70">DEV MODE</span>
+                <span className="text-xs">Mock Avatar<br/>(check logs)</span>
+              </div>
+              ) : avatar.status === 'ready' && avatar.canonical_url ? (
                 <div 
                   className="w-full h-full relative group cursor-pointer"
                   onClick={() => setViewAvatarId(avatar.id)}

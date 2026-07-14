@@ -41,7 +41,12 @@ export default function Gallery() {
           </div>
         ) : renders?.map(render => (
           <Card key={render.id} className="overflow-hidden break-inside-avoid relative group">
-            {render.status === 'done' && render.result_url ? (
+            {render.status === 'dev_mock' ? (
+              <div className="aspect-[3/4] bg-neutral-900 border border-neutral-700 flex flex-col items-center justify-center p-6 text-center text-neutral-500">
+                <span className="font-mono text-sm mb-2 text-red-500/70">DEV MODE</span>
+                <span className="text-xs">Mock Render<br/>(check logs)</span>
+              </div>
+            ) : render.status === 'done' && render.result_url ? (
               <>
                 <img src={render.result_url} alt="Render" className="w-full object-cover block" />
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">

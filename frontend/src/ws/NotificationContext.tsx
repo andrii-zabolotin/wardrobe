@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-
 interface NotificationContextType {
   lastEvent: any | null;
 }

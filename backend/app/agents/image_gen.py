@@ -1,12 +1,26 @@
+from dataclasses import dataclass, field
 from google import genai
 from google.genai import types
 from app.core.config import settings
+from app.core.dev_mode import is_dev_mode
 from app.services.file_storage import read_file_bytes
+import logging
+from app.core.dev_mode import append_prompt_log
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class DevMockResult:
+    is_dev_mock: bool = True
+    model: str = ""
+    parts_summary: list[dict] = field(default_factory=list)
+    assembled_prompt: str = ""
+    config_summary: dict = field(default_factory=dict)
 
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
 
-async def generate_avatar(reference_paths: list[str], custom_prompt: str | None = None, height: int | None = None, weight: int | None = None) -> bytes:
+async def generate_avatar(reference_paths: list[str], custom_prompt: str | None = None, height: int | None = None, weight: int | None = None) -> bytes | DevMockResult:
     """Generate avatar image using gemini-3.1-flash-image."""
     AVATAR_SYSTEM_PROMPT = """Professional photorealistic studio character sheet created from the provided reference images.
 
@@ -49,6 +63,20 @@ Identity consistency and accurate anatomical reference are the highest priority.
         
     parts.append(types.Part.from_text(text=prompt))
     
+    if is_dev_mode():
+        dev_result = DevMockResult(
+            model="gemini-3.1-flash-image",
+            assembled_prompt=prompt,
+            parts_summary=[{"type": "image", "path": p} for p in reference_paths] + [{"type": "text", "content": prompt}],
+            config_summary={"aspect_ratio": "16:9", "modalities": ["IMAGE", "TEXT"]}
+        )
+        logger.info(f"\n=== DEV PROMPT [avatar_gen] ===\nMODEL: {dev_result.model}\nPARTS: image x {len(reference_paths)}, text x 1\nPROMPT:\n{prompt}\n===============================\n")
+        append_prompt_log({
+            "agent": "avatar_gen",
+            **dev_result.__dict__
+        })
+        return dev_result
+    
     client = get_client()
     response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-image",
@@ -57,7 +85,6 @@ Identity consistency and accurate anatomical reference are the highest priority.
             response_modalities=["IMAGE", "TEXT"],
             image_config=types.ImageConfig(
                 aspect_ratio="16:9",
-                number_of_images=1,
             )
         )
     )
@@ -68,7 +95,7 @@ Identity consistency and accurate anatomical reference are the highest priority.
             
     raise ValueError("No image generated")
 
-async def generate_outfit_render(avatar_path: str, garment_paths: list[str], image_prompt: str) -> bytes:
+async def generate_outfit_render(avatar_path: str, garment_paths: list[str], image_prompt: str) -> bytes | DevMockResult:
     """Generate final outfit render using gemini-3.1-flash-image."""
     parts = []
     
@@ -81,6 +108,20 @@ async def generate_outfit_render(avatar_path: str, garment_paths: list[str], ima
         
     parts.append(types.Part.from_text(text=image_prompt))
     
+    if is_dev_mode():
+        dev_result = DevMockResult(
+            model="gemini-3.1-flash-image",
+            assembled_prompt=image_prompt,
+            parts_summary=[{"type": "image", "path": avatar_path}] + [{"type": "image", "path": p} for p in garment_paths] + [{"type": "text", "content": image_prompt}],
+            config_summary={"aspect_ratio": "3:4", "modalities": ["IMAGE", "TEXT"]}
+        )
+        logger.info(f"\n=== DEV PROMPT [outfit_render] ===\nMODEL: {dev_result.model}\nPARTS: image x {len(garment_paths) + 1}, text x 1\nPROMPT:\n{image_prompt}\n==================================\n")
+        append_prompt_log({
+            "agent": "outfit_render",
+            **dev_result.__dict__
+        })
+        return dev_result
+    
     client = get_client()
     response = await client.aio.models.generate_content(
         model="gemini-3.1-flash-image",
@@ -89,7 +130,6 @@ async def generate_outfit_render(avatar_path: str, garment_paths: list[str], ima
             response_modalities=["IMAGE", "TEXT"],
             image_config=types.ImageConfig(
                 aspect_ratio="3:4",
-                number_of_images=1,
             )
         )
     )
