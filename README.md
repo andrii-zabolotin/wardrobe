@@ -4,6 +4,60 @@ AI-powered virtual wardrobe and outfit try-on — portfolio project demonstratin
 
 Users upload photos to generate a personal avatar, fill their wardrobe via Gemini Vision detection, assemble outfits on an interactive board, and generate photorealistic renders. A conversational AI stylist with function calling helps find the perfect outfit.
 
+## 📸 Gallery
+
+<details open>
+  <summary><b>View Screenshots</b></summary>
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/01-login.png" width="600" alt="Login Screen">
+  </p>
+  
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/02-wardrobe-processing.png" width="600" alt="Wardrobe Upload & Processing">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/03-wardrobe-items.png" width="600" alt="Wardrobe Items Grid">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/04-avatars.png" width="600" alt="Avatars Screen">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/05-outfit-board.png" width="600" alt="Outfit Board">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/06-gallery.png" width="600" alt="Generated Renders Gallery">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/07-render-detail.png" width="600" alt="Render Detail Modal">
+  </p>
+
+  <br/>
+
+  <p align="center">
+    <img src="docs/assets/08-stylist-chat.png" width="600" alt="AI Stylist Assistant">
+  </p>
+
+</details>
+
 ---
 
 ## 1. Key Features
