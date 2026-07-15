@@ -1,4 +1,4 @@
-from app.agents.image_gen import assemble_render_payload
+from app.llm.image_gen import assemble_render_payload
 
 
 def test_assemble_render_payload_basic():

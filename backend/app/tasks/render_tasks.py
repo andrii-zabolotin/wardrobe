@@ -3,8 +3,8 @@ from celery.utils.log import get_task_logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.agents.image_gen import DevMockResult, generate_outfit_render
-from app.agents.outfit_composer import (
+from app.llm.image_gen import DevMockResult, generate_outfit_render
+from app.llm.outfit_composer import (
     ComposerGarmentInfo,
     OutfitComposerInput,
     compose_outfit_prompt,

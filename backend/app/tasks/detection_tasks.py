@@ -5,7 +5,7 @@ from celery.utils.log import get_task_logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.agents.detection import crop_garment, detect_garments
+from app.llm.detection import crop_garment, detect_garments
 from app.core.config import settings
 from app.models.garment import Garment, SourceImage
 from app.services.file_storage import read_file_bytes, save_upload

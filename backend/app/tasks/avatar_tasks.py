@@ -2,8 +2,8 @@ from asgiref.sync import async_to_sync
 from celery.utils.log import get_task_logger
 from sqlalchemy import select
 
-from app.agents.image_gen import DevMockResult, generate_avatar
-from app.agents.outfit_composer import describe_avatar
+from app.llm.image_gen import DevMockResult, generate_avatar
+from app.llm.outfit_composer import describe_avatar
 from app.core.database import AsyncSessionLocal
 from app.models.avatar import Avatar
 from app.services.birefnet import apply_white_background

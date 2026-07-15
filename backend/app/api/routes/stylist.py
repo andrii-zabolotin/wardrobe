@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-from app.agents.stylist import StylistSession
+from app.llm.stylist import StylistSession
 from app.api.routes.ws import get_user_id_from_token
 
 router = APIRouter()

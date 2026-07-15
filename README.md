@@ -1,6 +1,6 @@
 # Wardrobe Try-On
 
-AI-powered virtual wardrobe and outfit try-on — portfolio project demonstrating a production-quality multi-agent Gemini pipeline.
+AI-powered virtual wardrobe and outfit try-on — portfolio project demonstrating a production-quality multi-stage Gemini API pipeline.
 
 Users upload photos to generate a personal avatar, fill their wardrobe via Gemini Vision detection, assemble outfits on an interactive board, and generate photorealistic renders. A conversational AI stylist with function calling helps find the perfect outfit.
 
@@ -182,7 +182,7 @@ React SPA → nginx → FastAPI (HTTP + WebSocket)
 
 ```
 backend/app/
-├── agents/       # Gemini API wrappers (detection, image gen, stylist, outfit composer)
+├── llm/          # Gemini API wrappers (detection, image gen, stylist, outfit composer)
 ├── api/routes/   # FastAPI endpoint routers (thin layer, delegates to services/tasks)
 ├── core/         # Settings, database, security, and dev mode tools
 ├── models/       # SQLAlchemy ORM model definitions
@@ -195,7 +195,7 @@ backend/app/
 
 ## 8. Design Decisions
 
-- **Strict Agent Separation:** All Gemini SDK calls are isolated within `app/agents/`. Route handlers and Celery tasks never interact with the AI models directly, ensuring clean boundaries.
+- **Strict AI Layer Separation:** All Gemini SDK calls are isolated within `app/llm/`. Route handlers and Celery tasks never interact with the AI models directly, ensuring clean boundaries.
 - **Asynchronous Task Architecture:** Since generating avatars or rendering try-ons takes 10–30 seconds, these operations are processed by Celery to avoid locking HTTP connections.
 - **PubSub Event Dispatching:** Celery workers run in separate OS processes and cannot easily share state with the FastAPI ASGI process. Redis PubSub bridges this gap, allowing tasks to publish events that WebSockets immediately forward.
 - **Database Engine Separation:** The Celery tasks spawn a dedicated database engine instead of sharing the API connection pool to prevent event loop reuse conflicts inside `async_to_sync` blocks.
