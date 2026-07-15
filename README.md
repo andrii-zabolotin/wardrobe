@@ -41,19 +41,13 @@ Users upload photos to generate a personal avatar, fill their wardrobe via Gemin
   <br/>
 
   <p align="center">
-    <img src="docs/assets/06-gallery.png" width="600" alt="Generated Renders Gallery">
+    <img src="docs/assets/06-stylist-chat.png" width="600" alt="AI Stylist Assistant">
   </p>
 
   <br/>
 
   <p align="center">
-    <img src="docs/assets/07-stylist-chat.png" width="600" alt="AI Stylist Assistant">
-  </p>
-
-  <br/>
-
-  <p align="center">
-    <img src="docs/assets/08-render-detail.png" width="600" alt="Render Detail Modal">
+    <img src="docs/assets/07-render-detail.png" width="600" alt="Render Detail Modal">
   </p>
 
 </details>
