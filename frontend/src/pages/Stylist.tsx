@@ -1,31 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useChatStore } from '../store/chatStore';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
-import { Send, Sparkles, UserCircle } from 'lucide-react';
+import { Send, Sparkles, UserCircle, WifiOff } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { triggerRender } from '../api/outfits';
 import type { Garment } from '../api/garments';
-import { GarmentChip } from '../components/GarmentChip';
 import { GarmentPreviewModal } from '../components/GarmentPreviewModal';
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  type: 'text' | 'render_suggestion' | 'garment_cards';
-  outfitId?: string;
-  garments?: Garment[];
-}
+import { OutfitProposalBubble } from '../components/OutfitProposalBubble';
 
 export default function Stylist() {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hi! I'm your personal AI stylist. What are we dressing up for today?", type: 'text' }
-  ]);
+  const messages = useChatStore(state => state.messages);
+  const isTyping = useChatStore(state => state.isTyping);
+  const connect = useChatStore(state => state.connect);
+  const sendMessageToStore = useChatStore(state => state.sendMessage);
+  
   const [input, setInput] = useState('');
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(null);
   
   const token = useAuthStore(state => state.token);
@@ -35,55 +28,20 @@ export default function Stylist() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   useEffect(() => {
-    if (!token) return;
-
-    let url = `ws://${window.location.host}/ws/stylist?token=${token}`;
-    if (activeAvatarId) {
-      url += `&avatar_id=${activeAvatarId}`;
+    if (token) {
+      connect(token, activeAvatarId);
     }
-
-    const socket = new WebSocket(url);
-
-    socket.onmessage = (event) => {
-      setIsTyping(false);
-      const data = JSON.parse(event.data);
-      if (data.type === 'message') {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.text, type: 'text' }]);
-      } else if (data.type === 'render_suggestion') {
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: "I've put together an outfit for you! Want to try it on?", 
-          type: 'render_suggestion',
-          outfitId: data.outfit_id
-        }]);
-      } else if (data.type === 'garment_cards') {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: '',
-          type: 'garment_cards',
-          garments: data.garments
-        }]);
-      }
-    };
-
-    setWs(socket);
-
-    return () => {
-      socket.close();
-    };
-  }, [token, activeAvatarId]);
+    // We intentionally don't disconnect on unmount to keep the chat alive globally
+  }, [token, activeAvatarId, connect]);
 
   const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !ws) return;
-
-    setMessages(prev => [...prev, { role: 'user', content: input, type: 'text' }]);
-    ws.send(JSON.stringify({ text: input }));
+    if (!input.trim()) return;
+    sendMessageToStore(input);
     setInput('');
-    setIsTyping(true);
   };
 
   const handleRender = async (outfitId: string) => {
@@ -116,34 +74,33 @@ export default function Stylist() {
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                msg.role === 'user' 
-                  ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                  : 'bg-muted rounded-bl-sm'
-              }`}>
-                {msg.type === 'text' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : msg.type === 'render_suggestion' ? (
-                  <div className="space-y-3">
-                    <p className="font-medium">{msg.content}</p>
-                    <Button 
-                      onClick={() => msg.outfitId && handleRender(msg.outfitId)} 
-                      variant="secondary" 
-                      className="w-full"
-                    >
-                      Try On (Render)
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar max-w-full">
-                    {msg.garments?.map(g => (
-                      <GarmentChip key={g.id} garment={g} onClick={() => setSelectedGarment(g)} />
-                    ))}
-                  </div>
-                )}
-              </div>
+              {msg.type === 'outfit_proposal' ? (
+                <OutfitProposalBubble
+                  outfits={msg.outfits ?? []}
+                  text={msg.content}
+                  onRender={handleRender}
+                  onGarmentClick={setSelectedGarment}
+                />
+              ) : (
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                  msg.role === 'user' 
+                    ? 'bg-primary text-primary-foreground rounded-br-sm' 
+                    : msg.type === 'error'
+                    ? 'bg-destructive/10 text-destructive border border-destructive/20 rounded-bl-sm'
+                    : 'bg-muted rounded-bl-sm'
+                }`}>
+                  {msg.type === 'text' ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{msg.content || ''}</ReactMarkdown>
+                    </div>
+                  ) : msg.type === 'error' ? (
+                    <div className="flex items-center gap-2">
+                      <WifiOff className="h-4 w-4" />
+                      {msg.content}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           ))}
           {isTyping && (

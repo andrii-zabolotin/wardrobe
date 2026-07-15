@@ -1,5 +1,6 @@
 import uuid
 import json
+import logging
 from google import genai
 from google.genai import types
 
@@ -12,6 +13,8 @@ from sqlalchemy import select
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
 
+logger = logging.getLogger(__name__)
+
 STYLIST_SYSTEM_PROMPT = """
 You are a personal fashion stylist assistant with access to the user's wardrobe.
 You help them decide what to wear using their actual clothes.
@@ -21,6 +24,8 @@ Rules:
 - If wardrobe lacks items for a request, honestly say what's missing using get_wardrobe_gaps
 - NEVER suggest items the user doesn't own
 - When proposing an outfit, always call create_outfit and then trigger_render
+- If the user asks to change or replace a specific item in the outfit you just suggested, you MUST keep the other items from the previous outfit exactly the same, and only replace the requested item in your next create_outfit call.
+- IMPORTANT: After calling trigger_render, you MUST reply with a friendly text message describing the outfit you chose and why it fits the occasion.
 - Be concise, friendly, and fashion-forward
 - Respond in the same language the user writes in
 """
@@ -88,9 +93,11 @@ class StylistSession:
             config=types.GenerateContentConfig(
                 system_instruction=STYLIST_SYSTEM_PROMPT,
                 tools=[{"function_declarations": STYLIST_TOOLS}],
-                temperature=0.7,
+                temperature=0.5,
             )
         )
+        self.garments_cache = {}
+        self.outfit_garments = {}
 
     async def handle_search_wardrobe(self, args: dict) -> tuple[str, list[dict]]:
         filters = {}
@@ -125,22 +132,25 @@ class StylistSession:
                             "crop_url": g.crop_url,
                             "source_image_id": str(g.source_image_id) if g.source_image_id else None,
                             "source_image_url": g.source_image_url,
-                            "bounding_box": g.bounding_box
+                            "bounding_box": g.bounding_box,
+                            "attributes": g.attributes,
+                            "style_attributes": g.style_attributes
                         }
+                        self.garments_cache[card["id"]] = card
                         garment_cards.append(card)
                         # optionally add to result for Gemini to know context
                         r["bounding_box"] = g.bounding_box
         
-        return json.dumps(results), garment_cards
+        return results, garment_cards
 
-    async def handle_get_wardrobe_gaps(self, args: dict) -> str:
+    async def handle_get_wardrobe_gaps(self, args: dict) -> dict:
         # Simplistic implementation for MVP: just say nothing is missing or generic advice
         # Real implementation would query all categories and check counts
-        return json.dumps({"gaps": f"Based on '{args['criteria']}', you might need more diverse options."})
+        return {"gaps": f"Based on '{args['criteria']}', you might need more diverse options."}
 
-    async def handle_create_outfit(self, args: dict) -> str:
+    async def handle_create_outfit(self, args: dict) -> dict:
         if not self.active_avatar_id:
-            return json.dumps({"error": "No active avatar set by user. Ask them to set one first."})
+            return {"error": "No active avatar set by user. Ask them to set one first."}
             
         async with AsyncSessionLocal() as session:
             outfit = Outfit(
@@ -157,48 +167,75 @@ class StylistSession:
                 session.add(og)
                 
             await session.commit()
-            return json.dumps({"outfit_id": str(outfit.id)})
+            
+            # Cache the outfit's garments for the frontend event
+            garments = []
+            for gid in args.get("garment_ids", []):
+                if str(gid) in self.garments_cache:
+                    garments.append(self.garments_cache[str(gid)])
+            self.outfit_garments[str(outfit.id)] = garments
+            
+            return {"outfit_id": str(outfit.id)}
 
-    async def handle_trigger_render(self, args: dict) -> str:
-        return json.dumps({"status": "prompted_user_for_render", "outfit_id": args["outfit_id"]})
+    async def handle_trigger_render(self, args: dict) -> dict:
+        return {"status": "prompted_user_for_render", "outfit_id": args["outfit_id"]}
 
     async def send_message(self, text: str):
-        response = await self.chat.send_message(text)
-        
-        while response.function_calls:
-            for fn_call in response.function_calls:
-                name = fn_call.name
-                args = fn_call.args
-                
-                result = "{}"
-                if name == "search_wardrobe":
-                    result, garment_cards = await self.handle_search_wardrobe(args)
-                    if garment_cards:
-                        yield {
-                            "type": "garment_cards",
-                            "garments": garment_cards
-                        }
-                elif name == "get_wardrobe_gaps":
-                    result = await self.handle_get_wardrobe_gaps(args)
-                elif name == "create_outfit":
-                    result = await self.handle_create_outfit(args)
-                elif name == "trigger_render":
-                    result = await self.handle_trigger_render(args)
-                    # Yield special event
-                    yield {
-                        "type": "render_suggestion",
-                        "outfit_id": args.get("outfit_id")
-                    }
+        try:
+            response = await self.chat.send_message(text)
+            
+            while response.function_calls:
+                function_responses = []
+                for fn_call in response.function_calls:
+                    name = fn_call.name
+                    args = fn_call.args
                     
-                response = await self.chat.send_message(
-                    types.Part.from_function_response(
-                        name=name,
-                        response={"result": result}
+                    logger.info("[Stylist] function call: %s args=%s", name, args)
+                    result = {}
+                    if name == "search_wardrobe":
+                        result, garment_cards = await self.handle_search_wardrobe(args)
+                        if garment_cards:
+                            yield {
+                                "type": "garment_cards",
+                                "garments": garment_cards
+                            }
+                    elif name == "get_wardrobe_gaps":
+                        result = await self.handle_get_wardrobe_gaps(args)
+                    elif name == "create_outfit":
+                        result = await self.handle_create_outfit(args)
+                    elif name == "trigger_render":
+                        result = await self.handle_trigger_render(args)
+                        outfit_id = args.get("outfit_id")
+                        yield {
+                            "type": "render_suggestion",
+                            "outfit_id": outfit_id,
+                            "garments": self.outfit_garments.get(str(outfit_id), [])
+                        }
+                        
+                    function_responses.append(
+                        types.Part.from_function_response(
+                            name=name,
+                            response=result if isinstance(result, dict) else {"result": result}
+                        )
                     )
-                )
+
+                logger.info("[Stylist] sending %d function response(s) back to model", len(function_responses))
+                response = await self.chat.send_message(function_responses)
+                logger.info("[Stylist] model replied: has_fn_calls=%s", bool(response.function_calls))
+                    
+            final_text = response.text.strip() if response.text else ""
+            if not final_text:
+                final_text = "Here is what I picked out for you! Let me know what you think."
                 
-        if response.text:
+            logger.info("[Stylist] yielding final text message")
             yield {
                 "type": "message",
-                "text": response.text
+                "text": final_text
+            }
+                
+        except Exception as e:
+            logger.exception("[Stylist] error in send_message: %s", e)
+            yield {
+                "type": "error",
+                "text": f"Stylist error: {e}"
             }

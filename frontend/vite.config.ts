@@ -20,9 +20,15 @@ export default defineConfig({
         target: 'http://api:8000',
         changeOrigin: true,
       },
-      '/ws': {
+      '/ws/notifications': {
         target: 'http://api:8000',
         ws: true,
+        rewrite: (path) => path.replace(/^\/ws\/notifications/, '/api/v1/ws/notifications')
+      },
+      '/ws/stylist': {
+        target: 'http://api:8000',
+        ws: true,
+        rewrite: (path) => path.replace(/^\/ws\/stylist/, '/api/v1/stylist')
       },
       '/media': {
         target: 'http://nginx:80',

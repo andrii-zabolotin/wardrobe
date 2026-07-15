@@ -71,7 +71,10 @@ async def process_render(render_id: str) -> None:
                 pose=outfit.pose
             )
             
-            prompt_result = await compose_outfit_prompt(input_data)
+            garment_paths = [g.crop_url for g in garments]
+            garment_bytes = [read_file_bytes(p) for p in garment_paths]
+            
+            prompt_result = await compose_outfit_prompt(input_data, garment_bytes)
             
             # Render
             garment_paths = [g.crop_url for g in garments]

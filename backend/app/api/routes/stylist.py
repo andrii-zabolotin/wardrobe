@@ -23,7 +23,9 @@ async def stylist_websocket(websocket: WebSocket, token: str = Query(...), avata
             message = json.loads(data)
             
             if "text" in message:
+                print(f"[DEBUG] Received message from user: {message['text']}", flush=True)
                 async for event in session.send_message(message["text"]):
+                    print(f"[DEBUG] Sending event to user: {event}", flush=True)
                     await websocket.send_json(event)
                     
     except WebSocketDisconnect:

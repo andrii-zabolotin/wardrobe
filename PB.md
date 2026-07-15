@@ -54,10 +54,10 @@ Users upload photos to create a personal avatar, fill their wardrobe via Gemini 
 | **Redis** | Celery broker + PubSub for real-time WS notifications |
 | **PostgreSQL** | Primary persistence: users, avatars, garments, outfits, renders |
 | **Qdrant** | Vector store for semantic garment search (collection `garments`, filtered by `user_id`) |
-| **Detection Agent** | `gemini-2.5-flash` — structured output, detects garments with bbox + attributes |
-| **Outfit Prompt Composer** | `gemini-2.5-flash` — garment list + pose → image prompt |
+| **Detection Agent** | `gemini-3-flash-preview` — structured output, detects garments with bbox + attributes |
+| **Outfit Prompt Composer** | `gemini-3-flash-preview` — garment list + pose → image prompt |
 | **Image Generation** | `gemini-3.1-flash-image` (Interactions API) — avatar generation and outfit render |
-| **Stylist Assistant** | `gemini-2.5-flash` with function calling — conversational wardrobe search |
+| **Stylist Assistant** | `gemini-3-flash-preview` with function calling — conversational wardrobe search |
 | **nginx** | Reverse proxy, serves React SPA and `/media/` static files |
 
 ### Data Flow
@@ -106,11 +106,11 @@ WebSocket message format:
 
 | Agent | Model | Temp | Why |
 |---|---|---|---|
-| Detection Agent | `gemini-2.5-flash` | 0.1 | Structured JSON, vision, deterministic |
-| Outfit Prompt Composer | `gemini-2.5-flash` | 0.7 | Creative text, layer reasoning |
+| Detection Agent | `gemini-3-flash-preview` | 0.1 | Structured JSON, vision, deterministic |
+| Outfit Prompt Composer | `gemini-3-flash-preview` | 0.7 | Creative text, layer reasoning |
 | Avatar Generation | `gemini-3.1-flash-image` | — | Multimodal image gen (Interactions API) |
 | Outfit Render | `gemini-3.1-flash-image` | — | Avatar + garment crops → rendered photo |
-| Stylist Assistant | `gemini-2.5-flash` | 0.5 | Function calling, in-session context |
+| Stylist Assistant | `gemini-3-flash-preview` | 0.5 | Function calling, in-session context |
 | Embeddings | `text-embedding-004` | — | Garment semantic search |
 
 ---

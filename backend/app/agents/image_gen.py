@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.dev_mode import is_dev_mode
 from app.services.file_storage import read_file_bytes
 import logging
+import re
 from app.core.dev_mode import append_prompt_log
 
 logger = logging.getLogger(__name__)
@@ -95,18 +96,43 @@ Identity consistency and accurate anatomical reference are the highest priority.
             
     raise ValueError("No image generated")
 
+def assemble_render_payload(
+    prompt: str,
+    avatar_bytes: bytes,
+    garment_bytes_list: list[bytes],
+) -> list[types.Part]:
+    """
+    Splits the prompt with tags {@avatar}, {@garment_1}... into a multipart payload.
+    Fallback: unused images are added at the end.
+    """
+    tag_map = {"{@avatar}": avatar_bytes}
+    for i, gb in enumerate(garment_bytes_list):
+        tag_map[f"{{@garment_{i + 1}}}"] = gb
+
+    tokens = re.split(r'(\{@\w+\})', prompt)
+    parts = []
+    used = set()
+
+    for token in tokens:
+        if token in tag_map:
+            parts.append(types.Part.from_bytes(data=tag_map[token], mime_type="image/jpeg"))
+            used.add(token)
+        elif token:
+            parts.append(types.Part.from_text(text=token))
+
+    # Fallback: append missed images at the end
+    for tag, img in tag_map.items():
+        if tag not in used:
+            parts.append(types.Part.from_bytes(data=img, mime_type="image/jpeg"))
+
+    return parts
+
 async def generate_outfit_render(avatar_path: str, garment_paths: list[str], image_prompt: str) -> bytes | DevMockResult:
     """Generate final outfit render using gemini-3.1-flash-image."""
-    parts = []
-    
     avatar_bytes = read_file_bytes(avatar_path)
-    parts.append(types.Part.from_bytes(data=avatar_bytes, mime_type="image/jpeg"))
-    
-    for path in garment_paths:
-        file_bytes = read_file_bytes(path)
-        parts.append(types.Part.from_bytes(data=file_bytes, mime_type="image/jpeg"))
-        
-    parts.append(types.Part.from_text(text=image_prompt))
+    garment_bytes_list = [read_file_bytes(p) for p in garment_paths]
+
+    parts = assemble_render_payload(image_prompt, avatar_bytes, garment_bytes_list)
     
     if is_dev_mode():
         dev_result = DevMockResult(

@@ -41,9 +41,15 @@ async def describe_avatar(avatar_bytes: bytes) -> str:
     )
     return response.text.strip()
 
-async def compose_outfit_prompt(input_data: OutfitComposerInput) -> OutfitPromptResult:
+async def compose_outfit_prompt(input_data: OutfitComposerInput, garment_bytes: list[bytes]) -> OutfitPromptResult:
     """Compose final image prompt using gemini-2.5-flash structured output."""
-    prompt = """
+    
+    # Generate tag mapping documentation for the prompt
+    tag_mapping = "  {@avatar}     — the person/model to dress\n"
+    for i, garment in enumerate(input_data.garments):
+        tag_mapping += f"  {{@garment_{i+1}}}  — garment reference image (category: {garment.category})\n"
+        
+    prompt = f"""
     You are an expert fashion photo director and prompt engineer.
     Given a list of garments and an avatar description, compose a precise image generation prompt.
     
@@ -51,6 +57,14 @@ async def compose_outfit_prompt(input_data: OutfitComposerInput) -> OutfitPrompt
     1. Determine the logical layering order (e.g. t-shirt under jacket, socks under shoes)
     2. Describe how each garment sits on the body
     3. Output a final image_prompt that will be sent to a photorealistic image generation model
+    
+    TAG RULES (mandatory):
+    You MUST use these exact tags inline where the object is mentioned:
+{tag_mapping}
+    For EACH garment tag in your prompt, immediately after the tag write:
+    "— take ONLY the [category], ignore any other clothing visible in that image"
+    
+    Tags must appear inline in the sentence, not at the end.
     
     Image prompt rules:
     - Start with pose and setting description
@@ -69,13 +83,20 @@ async def compose_outfit_prompt(input_data: OutfitComposerInput) -> OutfitPrompt
     """
     
     client = get_client()
+    
+    contents = []
+    # Add garment images first
+    for gb in garment_bytes:
+        contents.append(types.Part.from_bytes(data=gb, mime_type="image/jpeg"))
+        
+    # Add system prompt and structured text
+    contents.append(types.Part.from_text(text=prompt))
+    contents.append(types.Part.from_text(text=f"Avatar: {input_data.avatar_description}"))
+    contents.append(types.Part.from_text(text=f"Garments: {input_data.model_dump_json()}"))
+    
     response = await client.aio.models.generate_content(
         model="gemini-3-flash-preview",
-        contents=[
-            prompt,
-            f"Avatar: {input_data.avatar_description}",
-            f"Garments: {input_data.model_dump_json()}",
-        ],
+        contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=OutfitPromptResult,

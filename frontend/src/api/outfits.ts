@@ -6,6 +6,7 @@ export interface Outfit {
   pose: string;
   name: string | null;
   created_at: string;
+  garment_ids: string[];
 }
 
 export const getOutfits = async (): Promise<Outfit[]> => {
