@@ -4,15 +4,19 @@ AI-powered virtual wardrobe and outfit try-on — portfolio project demonstratin
 
 Users upload photos to generate a personal avatar, fill their wardrobe via Gemini Vision detection, assemble outfits on an interactive board, and generate photorealistic renders. A conversational AI stylist with function calling helps find the perfect outfit.
 
-## Key Features
+---
 
-- **Avatar generation** — upload 1–5 reference photos; Gemini generates a photorealistic character sheet
-- **Garment detection** — upload clothing images; Gemini Vision detects, crops, and categorizes each item with bounding boxes
-- **Outfit board** — drag-and-drop outfit assembly with pose selection
-- **AI render** — Gemini image generation produces a photorealistic photo of the avatar wearing the outfit
-- **Stylist chat** — WebSocket-based conversational assistant with function calling, semantic wardrobe search (Qdrant), and outfit creation
+## 1. Key Features
 
-## Architecture
+- **Avatar Generation** — upload 1–5 reference photos; Gemini generates a photorealistic character sheet.
+- **Garment Detection** — upload clothing images; Gemini Vision detects, crops, and categorizes each item with bounding boxes.
+- **Outfit Board** — drag-and-drop outfit assembly with pose selection.
+- **AI Render** — Gemini image generation produces a photorealistic photo of the avatar wearing the outfit.
+- **Stylist Chat** — WebSocket-based conversational assistant with function calling, semantic wardrobe search (Qdrant), and outfit creation.
+
+---
+
+## 2. Architecture
 
 ```
 React SPA → nginx → FastAPI (HTTP + WebSocket)
@@ -23,104 +27,146 @@ React SPA → nginx → FastAPI (HTTP + WebSocket)
                   → Redis (Celery broker + PubSub for WS notifications)
 ```
 
-## Tech Stack
+- **Celery for long-running AI tasks:** Avatar generation and renders can take 10–30 seconds. Offloading these to Celery prevents HTTP timeouts and keeps the API responsive.
+- **Redis PubSub for real-time notifications:** Celery workers publish processing updates and completion events to Redis. FastAPI WebSocket handlers subscribe to these channels and immediately push updates to the browser.
+- **PostgreSQL is the source of truth, Qdrant is a derived index:** Garments are written to Postgres first to guarantee data integrity, then indexed into Qdrant for semantic search.
+
+---
+
+## 3. Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, FastAPI (async), Celery + Redis |
-| Database | PostgreSQL 16, SQLAlchemy 2 (async) + Alembic |
-| Vector DB | Qdrant |
-| AI | Google Gemini (`gemini-3-flash-preview`, `gemini-3.1-flash-image`, `text-embedding-004`) |
-| Auth | JWT (python-jose) + bcrypt |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, TanStack Query v5 |
-| Infra | nginx, Docker Compose |
+| **Backend** | Python 3.12, FastAPI (async), Celery + Redis |
+| **Database** | PostgreSQL 16, SQLAlchemy 2 (async) + Alembic |
+| **Vector DB** | Qdrant |
+| **AI** | Google Gemini (`gemini-3-flash-preview`, `gemini-3.1-flash-image`, `gemini-embedding-2`) |
+| **Auth** | JWT (python-jose) + bcrypt |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS v4, Zustand, TanStack Query v5 |
+| **Infra** | nginx, Docker Compose |
 
-## Quickstart
+---
+
+## 4. Quickstart
 
 ### Prerequisites
 - Docker and Docker Compose
-- A Google Gemini API key
+- A Google Gemini API key ([get one here](https://aistudio.google.com/))
 
 ### Setup
 
-```bash
-git clone <repo>
-cd wardrobe
-cp .env.example .env
-# Edit .env — set GEMINI_API_KEY and JWT_SECRET
-docker compose up --build
-```
+1. Clone the repository:
+   ```bash
+   git clone <repo-url>
+   cd wardrobe
+   ```
 
-Open [http://localhost](http://localhost).
+2. Copy and configure the environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env and set GEMINI_API_KEY and JWT_SECRET
+   ```
+
+3. Spin up the containers:
+   ```bash
+   docker compose up --build
+   ```
 
 | Endpoint | URL |
 |----------|-----|
-| App | http://localhost |
-| API docs | http://localhost:8000/docs |
+| **App** | [http://localhost](http://localhost) |
+| **API docs** | [http://localhost:8000/docs](http://localhost:8000/docs) |
 
-## Configuration
+---
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GEMINI_API_KEY` | ✅ | Google Gemini API key |
-| `JWT_SECRET` | ✅ | Secret for signing JWT tokens |
-| `DATABASE_URL` | — | Defaults to local PostgreSQL |
-| `REDIS_URL` | — | Defaults to local Redis |
-| `QDRANT_URL` | — | Defaults to local Qdrant |
-| `MAX_UPLOAD_SIZE_MB` | — | Default: 20 |
-| `DEV_MODE` | — | Enables prompt logging; skips Gemini API calls |
-| `JWT_EXPIRE_MINUTES` | — | Default: 10080 (7 days) |
+## 5. Configuration
 
-## Local Development (without Docker)
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `GEMINI_API_KEY` | ✅ | — | Google Gemini API key |
+| `JWT_SECRET` | ✅ | — | Secret for signing JWT tokens |
+| `DATABASE_URL` | — | `postgresql+asyncpg://postgres:postgres@postgres:5432/wardrobe` | Database connection URL |
+| `REDIS_URL` | — | `redis://redis:6379/0` | Redis connection URL |
+| `QDRANT_URL` | — | `http://qdrant:6333` | Qdrant connection URL |
+| `MAX_UPLOAD_SIZE_MB` | — | `20` | Maximum file upload size limit |
+| `DEV_MODE` | — | `false` | Skips Gemini API calls and mocks results |
+| `JWT_EXPIRE_MINUTES` | — | `10080` | JWT expiration limit (7 days) |
 
-```bash
-# Backend
-cd backend
-uv sync
-uv run alembic upgrade head
-uv run fastapi dev app/main.py
-# In a separate terminal:
-uv run celery -A app.tasks.celery_app worker --loglevel=info
+---
 
-# Frontend
-cd frontend
-npm ci && npm run dev
-```
+## 6. Local Development (without Docker)
 
-## Project Structure
+### Backend
+
+1. Install dependencies and activate the virtual environment:
+   ```bash
+   cd backend
+   uv sync
+   ```
+
+2. Run database migrations:
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+3. Start the FastAPI development server:
+   ```bash
+   uv run fastapi dev app/main.py
+   ```
+
+4. In a separate terminal, start the Celery worker:
+   ```bash
+   uv run celery -A app.tasks.celery_app worker --loglevel=info
+   ```
+
+### Frontend
+
+1. Install frontend packages and start the Vite dev server:
+   ```bash
+   cd frontend
+   npm ci
+   npm run dev
+   ```
+
+---
+
+## 7. Project Structure
 
 ```
 backend/app/
-├── agents/       # All Gemini API calls (detection, image gen, stylist, composer)
-├── api/routes/   # FastAPI route handlers — thin, delegate to services/tasks
-├── core/         # Config, database, security, dev mode
-├── models/       # SQLAlchemy ORM models
-├── schemas/      # Pydantic request/response schemas
-├── services/     # Qdrant vector store, file storage
-└── tasks/        # Celery tasks (avatar, detection, render) + Redis notifications
+├── agents/       # Gemini API wrappers (detection, image gen, stylist, outfit composer)
+├── api/routes/   # FastAPI endpoint routers (thin layer, delegates to services/tasks)
+├── core/         # Settings, database, security, and dev mode tools
+├── models/       # SQLAlchemy ORM model definitions
+├── schemas/      # Pydantic request/response validation schemas
+├── services/     # Qdrant vector store integrations, local file storage
+└── tasks/        # Celery asynchronous tasks + Redis WS notification publishers
 ```
 
-## Design Decisions
+---
 
-- **All Gemini calls are in `agents/`** — routes and tasks never touch the SDK directly
-- **Celery for long-running AI tasks** — avatar generation and renders can take 10–30 seconds; async tasks prevent HTTP timeout
-- **Redis PubSub for real-time notifications** — Celery workers publish events; FastAPI WebSocket handlers forward them to the browser
-- **PostgreSQL is the source of truth; Qdrant is a derived index** — garments are written to PG first, then Qdrant
-- **Bounding boxes stored normalized** (0.0–1.0) — pixel coordinates computed on demand
-- **JWT passed as query param for WebSocket auth** — browsers do not support `Authorization` headers for WebSocket connections
-- **Celery worker creates its own SQLAlchemy engine** — avoids asyncpg connection reuse across event loop boundaries when using `async_to_sync`
+## 8. Design Decisions
 
-## Known Limitations
+- **Strict Agent Separation:** All Gemini SDK calls are isolated within `app/agents/`. Route handlers and Celery tasks never interact with the AI models directly, ensuring clean boundaries.
+- **Asynchronous Task Architecture:** Since generating avatars or rendering try-ons takes 10–30 seconds, these operations are processed by Celery to avoid locking HTTP connections.
+- **PubSub Event Dispatching:** Celery workers run in separate OS processes and cannot easily share state with the FastAPI ASGI process. Redis PubSub bridges this gap, allowing tasks to publish events that WebSockets immediately forward.
+- **Database Engine Separation:** The Celery tasks spawn a dedicated database engine instead of sharing the API connection pool to prevent event loop reuse conflicts inside `async_to_sync` blocks.
+- **WebSocket Auth via Query Params:** Standard browser WebSocket client APIs do not support setting custom headers (like `Authorization: Bearer`). To bypass this, JWT tokens are securely verified from query parameters on socket upgrade.
+- **Normalized Bounding Boxes:** Bounding boxes returned by Gemini are stored as normalized ratios (0.0–1.0) and denormalized based on the container image size at runtime, ensuring crop safety.
 
-- BiRefNet background removal is stubbed (returns original image) — would require a separate GPU service in production
-- No persistent stylist chat history across sessions
-- Single-user demo; no rate limiting or multi-tenancy hardening
+---
 
-## Usage Flow
+## 9. Known Limitations
 
-1. **Register / Login**
-2. **Avatars** — upload reference photos to generate your digital twin
-3. **Wardrobe** — upload clothing; AI detects and categorizes each garment
-4. **Outfit Board** — assemble an outfit, select a pose
-5. **Stylist** — chat with your AI stylist to get outfit recommendations
-6. **Gallery** — view renders and save your favorites
+- **BiRefNet Stub:** Background removal is currently stubbed to return the original bytes. Running native background removal would require a separate GPU container, which is omitted for local deployment simplicity.
+- **Ephemeral Stylist History:** Conversation logs for the AI Stylist are kept in-memory for the current WebSocket session and do not persist to a database.
+- **Single-Tenant Hardening:** Rate limiting and multi-tenancy access-level isolation are omitted to focus on the core AI pipeline.
+
+---
+
+## 10. Future Roadmap
+
+- **External Background Removal:** Connect the BiRefNet stub to a lightweight serverless GPU endpoint (e.g., RunPod or Replicate).
+- **Persistent Chat History:** Move stylist conversation storage to PostgreSQL or Redis JSON cache for cross-session recovery.
+- **CI/CD Integration:** Configure GitHub Actions for running Ruff, Mypy type-checking, and pytest suites.
+- **Rate Limiting:** Secure routes and WebSocket endpoints with slow-limits using a Redis token-bucket system.
