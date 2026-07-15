@@ -1,9 +1,14 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 from app.api.routes import api_router
 from app.services.vector_store import init_collection
+
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,11 +16,13 @@ async def lifespan(app: FastAPI):
     try:
         await init_collection()
     except Exception as e:
-        print(f"Failed to initialize collection: {e}")
+        logger.error(f"Failed to initialize collection: {e}")
     yield
 
 app = FastAPI(title="Wardrobe Try-On API", lifespan=lifespan)
 
+# NOTE: CORS is configured to allow all origins ("*") for ease of local portfolio demonstration.
+# In a production environment, this should be restricted to the specific frontend domain.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

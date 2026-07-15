@@ -15,6 +15,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     if (!token) return;
 
+    // NOTE: Pass JWT token via query parameter since standard browser WebSocket client APIs
+    // do not support custom request headers (like Authorization: Bearer).
     const wsUrl = `ws://${window.location.host}/ws/notifications?token=${token}`;
     const ws = new WebSocket(wsUrl);
 

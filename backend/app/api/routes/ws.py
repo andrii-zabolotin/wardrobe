@@ -1,8 +1,8 @@
 import asyncio
-import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
-from jose import jwt, JWTError
+
 import redis.asyncio as aioredis
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
 
 from app.core.config import settings
 
@@ -15,6 +15,8 @@ async def get_user_id_from_token(token: str) -> str | None:
     except JWTError:
         return None
 
+# NOTE: Pass JWT token via query parameter since standard browser WebSocket client APIs
+# do not support custom request headers (like Authorization: Bearer).
 @router.websocket("/notifications")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     user_id = await get_user_id_from_token(token)

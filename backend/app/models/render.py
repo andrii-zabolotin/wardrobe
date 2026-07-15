@@ -1,7 +1,10 @@
 import uuid
+
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, Boolean
-from .base import Base, UUIDMixin, TimestampMixin
+
+from .base import Base, TimestampMixin, UUIDMixin
+
 
 class Render(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "renders"

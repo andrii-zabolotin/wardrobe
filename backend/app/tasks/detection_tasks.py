@@ -1,17 +1,17 @@
-import asyncio
 import uuid
+
 from asgiref.sync import async_to_sync
 from celery.utils.log import get_task_logger
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.tasks.celery_app import celery_app
-from app.tasks.notifications import publish_ws_event
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from app.agents.detection import crop_garment, detect_garments
 from app.core.config import settings
 from app.models.garment import Garment, SourceImage
-from app.services.file_storage import save_upload, read_file_bytes
+from app.services.file_storage import read_file_bytes, save_upload
 from app.services.vector_store import upsert_garment
-from app.agents.detection import detect_garments, crop_garment
+from app.tasks.celery_app import celery_app
+from app.tasks.notifications import publish_ws_event
 
 logger = get_task_logger(__name__)
 

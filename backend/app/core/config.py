@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     # DB
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/wardrobe"
@@ -19,6 +20,13 @@ class Settings(BaseSettings):
     
     # Dev Mode
     dev_mode: bool = False
+
+    # AI Models
+    model_detection: str = "gemini-3-flash-preview"
+    model_composer: str = "gemini-3-flash-preview"
+    model_image_gen: str = "gemini-3.1-flash-image"
+    model_stylist: str = "gemini-3-flash-preview"
+    model_embeddings: str = "gemini-embedding-2"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

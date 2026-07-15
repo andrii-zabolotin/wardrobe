@@ -1,9 +1,11 @@
 from typing import Literal
-from pydantic import BaseModel
+
 from google import genai
 from google.genai import types
+from pydantic import BaseModel
 
 from app.core.config import settings
+
 
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
@@ -31,8 +33,8 @@ async def describe_avatar(avatar_bytes: bytes) -> str:
     prompt = "Briefly describe the physical characteristics of the person in this image: gender, build, approximate age, skin tone, hair color/style. Return ONLY the description, e.g. 'Athletic build male, ~30yo, fair skin, dark hair'."
     
     client = get_client()
-    response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+    response = await client.aio.models.generate_content(
+        model=settings.model_composer,
         contents=[
             types.Part.from_bytes(data=avatar_bytes, mime_type="image/jpeg"),
             prompt
@@ -95,7 +97,7 @@ async def compose_outfit_prompt(input_data: OutfitComposerInput, garment_bytes: 
     contents.append(types.Part.from_text(text=f"Garments: {input_data.model_dump_json()}"))
     
     response = await client.aio.models.generate_content(
-        model="gemini-3-flash-preview",
+        model=settings.model_composer,
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

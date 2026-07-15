@@ -1,7 +1,10 @@
 import uuid
+
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey
-from .base import Base, UUIDMixin, TimestampMixin
+
+from .base import Base, TimestampMixin, UUIDMixin
+
 
 class Outfit(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "outfits"

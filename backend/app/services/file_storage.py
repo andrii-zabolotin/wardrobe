@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
+
 from app.core.config import settings
+
 
 def _get_abs_path(url_path: str) -> Path:
     if url_path.startswith("/media/"):

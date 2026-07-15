@@ -1,8 +1,10 @@
 import uuid
+
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from .base import Base, UUIDMixin, TimestampMixin
+
+from .base import Base, TimestampMixin, UUIDMixin
+
 
 class Avatar(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "avatars"

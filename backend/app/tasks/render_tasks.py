@@ -1,19 +1,21 @@
-import asyncio
-import uuid
 from asgiref.sync import async_to_sync
 from celery.utils.log import get_task_logger
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.agents.image_gen import DevMockResult, generate_outfit_render
+from app.agents.outfit_composer import (
+    ComposerGarmentInfo,
+    OutfitComposerInput,
+    compose_outfit_prompt,
+    describe_avatar,
+)
+from app.core.database import AsyncSessionLocal
+from app.models.outfit import Outfit, OutfitGarment
+from app.models.render import Render
+from app.services.file_storage import read_file_bytes, save_upload
 from app.tasks.celery_app import celery_app
 from app.tasks.notifications import publish_ws_event
-from app.core.database import AsyncSessionLocal
-from app.models.render import Render
-from app.models.outfit import Outfit, OutfitGarment
-from app.models.avatar import Avatar
-from app.services.file_storage import save_upload, read_file_bytes
-from app.agents.outfit_composer import describe_avatar, compose_outfit_prompt, OutfitComposerInput, ComposerGarmentInfo
-from app.agents.image_gen import generate_outfit_render, DevMockResult
 
 logger = get_task_logger(__name__)
 

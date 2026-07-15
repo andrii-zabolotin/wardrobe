@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
+
 
 class OutfitCreateRequest(BaseModel):
     avatar_id: uuid.UUID

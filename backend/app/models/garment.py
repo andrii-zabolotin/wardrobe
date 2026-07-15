@@ -1,8 +1,11 @@
 import uuid
+
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-from .base import Base, UUIDMixin, TimestampMixin
+
+from .base import Base, TimestampMixin, UUIDMixin
+
 
 class SourceImage(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "source_images"

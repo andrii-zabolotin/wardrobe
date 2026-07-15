@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
+
 from pydantic import BaseModel
+
 
 class AvatarGenerateRequest(BaseModel):
     custom_prompt: str | None = None

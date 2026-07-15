@@ -1,16 +1,15 @@
-import asyncio
 from asgiref.sync import async_to_sync
 from celery.utils.log import get_task_logger
+from sqlalchemy import select
 
-from app.tasks.celery_app import celery_app
-from app.tasks.notifications import publish_ws_event
+from app.agents.image_gen import DevMockResult, generate_avatar
+from app.agents.outfit_composer import describe_avatar
 from app.core.database import AsyncSessionLocal
 from app.models.avatar import Avatar
-from app.services.file_storage import save_upload, read_file_bytes
 from app.services.birefnet import apply_white_background
-from app.agents.image_gen import generate_avatar, DevMockResult
-from app.agents.outfit_composer import describe_avatar
-from sqlalchemy import select
+from app.services.file_storage import read_file_bytes, save_upload
+from app.tasks.celery_app import celery_app
+from app.tasks.notifications import publish_ws_event
 
 logger = get_task_logger(__name__)
 

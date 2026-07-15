@@ -1,15 +1,16 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from app.core.database import get_db
-from app.models.user import User
-from app.models.avatar import Avatar, AvatarSourceImage
-from app.tasks.avatar_tasks import generate_avatar_task, process_manual_avatar_task
-from app.schemas.avatar import AvatarResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import get_current_user
-from app.services.file_storage import save_upload, delete_file
+from app.core.database import get_db
+from app.models.avatar import Avatar, AvatarSourceImage
+from app.models.user import User
+from app.schemas.avatar import AvatarResponse
+from app.services.file_storage import delete_file, save_upload
+from app.tasks.avatar_tasks import generate_avatar_task, process_manual_avatar_task
 
 router = APIRouter()
 

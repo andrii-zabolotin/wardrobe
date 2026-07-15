@@ -1,13 +1,14 @@
 from fastapi import APIRouter
+
 from .auth import router as auth_router
-from .ws import router as ws_router
 from .avatars import router as avatars_router
+from .gallery import router as gallery_router
 from .garments import router as garments_router
 from .outfits import router as outfits_router
 from .renders import router as renders_router
-from .gallery import router as gallery_router
-from .stylist import router as stylist_router
 from .settings import router as settings_router
+from .stylist import router as stylist_router
+from .ws import router as ws_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])

@@ -1,15 +1,16 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.database import get_db
-from app.models.user import User
-from app.models.garment import Garment, SourceImage
-from app.schemas.garment import GarmentResponse, GarmentUpdateRequest
 from app.api.deps import get_current_user
-from app.services.file_storage import save_upload, delete_file
+from app.core.database import get_db
+from app.models.garment import Garment, SourceImage
+from app.models.user import User
+from app.schemas.garment import GarmentResponse, GarmentUpdateRequest
+from app.services.file_storage import delete_file, save_upload
 from app.services.vector_store import delete_garment, upsert_garment
 from app.tasks.detection_tasks import detection_task
 

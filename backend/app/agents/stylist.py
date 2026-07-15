@@ -1,14 +1,16 @@
-import uuid
-import json
 import logging
+import uuid
+from typing import Any
+
 from google import genai
 from google.genai import types
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.outfit import Outfit, OutfitGarment
 from app.services.vector_store import search_garments
-from sqlalchemy import select
+
 
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
@@ -89,17 +91,17 @@ class StylistSession:
         self.active_avatar_id = active_avatar_id
         self.client = get_client()
         self.chat = self.client.aio.chats.create(
-            model="gemini-3-flash-preview",
+            model=settings.model_stylist,
             config=types.GenerateContentConfig(
                 system_instruction=STYLIST_SYSTEM_PROMPT,
                 tools=[{"function_declarations": STYLIST_TOOLS}],
                 temperature=0.5,
             )
         )
-        self.garments_cache = {}
-        self.outfit_garments = {}
+        self.garments_cache: dict[str, dict[str, Any]] = {}
+        self.outfit_garments: dict[str, list[dict[str, Any]]] = {}
 
-    async def handle_search_wardrobe(self, args: dict) -> tuple[str, list[dict]]:
+    async def handle_search_wardrobe(self, args: dict) -> tuple[list[Any], list[dict[str, Any]]]:
         filters = {}
         if "category" in args:
             filters["category"] = args["category"]
@@ -115,8 +117,9 @@ class StylistSession:
         if results:
             garment_ids = [r["garment_id"] for r in results]
             async with AsyncSessionLocal() as session:
-                from app.models.garment import Garment
                 from sqlalchemy.orm import joinedload
+
+                from app.models.garment import Garment
                 stmt = select(Garment).options(joinedload(Garment.source_image)).where(Garment.id.in_(garment_ids))
                 db_results = await session.execute(stmt)
                 db_garments = {str(g.id): g for g in db_results.scalars().all()}
@@ -136,7 +139,7 @@ class StylistSession:
                             "attributes": g.attributes,
                             "style_attributes": g.style_attributes
                         }
-                        self.garments_cache[card["id"]] = card
+                        self.garments_cache[str(g.id)] = card
                         garment_cards.append(card)
                         # optionally add to result for Gemini to know context
                         r["bounding_box"] = g.bounding_box
@@ -191,7 +194,7 @@ class StylistSession:
                     args = fn_call.args
                     
                     logger.info("[Stylist] function call: %s args=%s", name, args)
-                    result = {}
+                    result: Any = {}
                     if name == "search_wardrobe":
                         result, garment_cards = await self.handle_search_wardrobe(args)
                         if garment_cards:

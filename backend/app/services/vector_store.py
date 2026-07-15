@@ -1,7 +1,17 @@
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from google import genai
+from typing import Any
+from qdrant_client import AsyncQdrantClient
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
+
 from app.core.config import settings
+
 
 def get_qdrant() -> AsyncQdrantClient:
     return AsyncQdrantClient(url=settings.qdrant_url)
@@ -26,10 +36,13 @@ async def embed_text(text: str) -> list[float]:
     """Get embedding from Gemini."""
     client = get_genai_client()
     response = await client.aio.models.embed_content(
-        model="gemini-embedding-2",
+        model=settings.model_embeddings,
         contents=text
     )
-    return response.embeddings[0].values
+    embeddings = response.embeddings
+    if not embeddings or not embeddings[0].values:
+        raise ValueError("No embeddings returned from API")
+    return embeddings[0].values
 
 async def upsert_garment(garment_id: str, user_id: str, embedding_summary: str, payload: dict) -> None:
     """Vectorize summary and upsert to Qdrant."""
@@ -65,11 +78,11 @@ async def delete_garment(garment_id: str) -> None:
     finally:
         await client.close()
 
-async def search_garments(user_id: str, query: str, limit: int = 5, filters: dict = None) -> list[dict]:
+async def search_garments(user_id: str, query: str, limit: int = 5, filters: dict | None = None) -> list[dict]:
     """Semantic search for user's garments."""
     vector = await embed_text(query)
     
-    must_conditions = [
+    must_conditions: list[Any] = [
         FieldCondition(key="user_id", match=MatchValue(value=str(user_id)))
     ]
     
@@ -89,6 +102,6 @@ async def search_garments(user_id: str, query: str, limit: int = 5, filters: dic
             query_filter=search_filter,
             limit=limit
         )
-        return [hit.payload for hit in results.points]
+        return [hit.payload for hit in results.points if hit.payload is not None]
     finally:
         await client.close()

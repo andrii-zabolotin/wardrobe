@@ -1,12 +1,13 @@
-from dataclasses import dataclass, field
-from google import genai
-from google.genai import types
-from app.core.config import settings
-from app.core.dev_mode import is_dev_mode
-from app.services.file_storage import read_file_bytes
 import logging
 import re
-from app.core.dev_mode import append_prompt_log
+from dataclasses import dataclass, field
+
+from google import genai
+from google.genai import types
+
+from app.core.config import settings
+from app.core.dev_mode import append_prompt_log, is_dev_mode
+from app.services.file_storage import read_file_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ Identity consistency and accurate anatomical reference are the highest priority.
     
     if is_dev_mode():
         dev_result = DevMockResult(
-            model="gemini-3.1-flash-image",
+            model=settings.model_image_gen,
             assembled_prompt=prompt,
             parts_summary=[{"type": "image", "path": p} for p in reference_paths] + [{"type": "text", "content": prompt}],
             config_summary={"aspect_ratio": "16:9", "modalities": ["IMAGE", "TEXT"]}
@@ -80,7 +81,7 @@ Identity consistency and accurate anatomical reference are the highest priority.
     
     client = get_client()
     response = await client.aio.models.generate_content(
-        model="gemini-3.1-flash-image",
+        model=settings.model_image_gen,
         contents=parts,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"],
@@ -136,7 +137,7 @@ async def generate_outfit_render(avatar_path: str, garment_paths: list[str], ima
     
     if is_dev_mode():
         dev_result = DevMockResult(
-            model="gemini-3.1-flash-image",
+            model=settings.model_image_gen,
             assembled_prompt=image_prompt,
             parts_summary=[{"type": "image", "path": avatar_path}] + [{"type": "image", "path": p} for p in garment_paths] + [{"type": "text", "content": image_prompt}],
             config_summary={"aspect_ratio": "3:4", "modalities": ["IMAGE", "TEXT"]}
@@ -150,7 +151,7 @@ async def generate_outfit_render(avatar_path: str, garment_paths: list[str], ima
     
     client = get_client()
     response = await client.aio.models.generate_content(
-        model="gemini-3.1-flash-image",
+        model=settings.model_image_gen,
         contents=parts,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE", "TEXT"],

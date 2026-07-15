@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from app.core.dev_mode import is_dev_mode, set_dev_mode
+
+from app.core.dev_mode import get_prompt_logs, is_dev_mode, set_dev_mode
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -15,9 +16,6 @@ def get_settings():
 def patch_settings(body: DevModeToggle):
     set_dev_mode(body.dev_mode)
     return {"dev_mode": is_dev_mode()}
-
-from fastapi import HTTPException
-from app.core.dev_mode import get_prompt_logs
 
 @router.get("/logs")
 def get_logs():

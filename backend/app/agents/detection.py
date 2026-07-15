@@ -1,12 +1,13 @@
 import io
 from typing import Literal
-from pydantic import BaseModel
-from PIL import Image
+
 from google import genai
 from google.genai import types
+from PIL import Image
+from pydantic import BaseModel
 
 from app.core.config import settings
-from app.services.file_storage import read_file_bytes
+
 
 def get_client():
     return genai.Client(api_key=settings.gemini_api_key)
@@ -49,7 +50,7 @@ async def detect_garments(image_bytes: bytes) -> DetectionResult:
     """
     
     response = await get_client().aio.models.generate_content(
-        model="gemini-3-flash-preview",
+        model=settings.model_detection,
         contents=[
             types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
             prompt
@@ -69,10 +70,9 @@ def crop_garment(image_bytes: bytes, bbox: list[float]) -> bytes:
     Returns JPEG bytes.
     """
     img = Image.open(io.BytesIO(image_bytes))
-    if img.mode != "RGB":
-        img = img.convert("RGB")
+    img_rgb = img.convert("RGB") if img.mode != "RGB" else img
         
-    width, height = img.size
+    width, height = img_rgb.size
     ymin, xmin, ymax, xmax = bbox
     
     # Gemini sometimes returns 0-1000 coordinates instead of 0-1
@@ -94,7 +94,7 @@ def crop_garment(image_bytes: bytes, bbox: list[float]) -> bytes:
     top = max(0, min(top, height - 1))
     bottom = max(top + 1, min(bottom, height))
     
-    cropped = img.crop((left, top, right, bottom))
+    cropped = img_rgb.crop((left, top, right, bottom))
     
     out_io = io.BytesIO()
     cropped.save(out_io, format="JPEG", quality=90)

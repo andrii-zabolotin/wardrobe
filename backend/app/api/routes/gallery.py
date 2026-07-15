@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.models.user import User
-from app.models.render import Render
-from app.schemas.render import RenderResponse
 from app.api.deps import get_current_user
+from app.core.database import get_db
+from app.models.render import Render
+from app.models.user import User
+from app.schemas.render import RenderResponse
 
 router = APIRouter()
 
@@ -17,7 +17,7 @@ async def list_gallery(
 ):
     stmt = select(Render).where(
         Render.user_id == current_user.id,
-        Render.is_saved == True
+        Render.is_saved
     ).order_by(Render.created_at.desc())
     result = await db.execute(stmt)
     return result.scalars().all()

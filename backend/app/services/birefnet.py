@@ -1,3 +1,4 @@
+# STUB: BiRefNet background removal is disabled in this deployment context (pass-through fallback)
 def apply_white_background(image_bytes: bytes) -> bytes:
     """
     Remove background and place on a solid white background.
